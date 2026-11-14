@@ -173,7 +173,11 @@ decode 预计 **−5~10%**，prefill/TTFT 基本不受影响。
 
 **想省一半代价**：给 run.sh 加 `--kv-cache-dtype fp8_ds_mla`（V2 已实现该布局，
 `deepseek_v4_1/attention.py:113`，旧引擎 C 的默认值就是它），KV 字节数减半，
-覆盖率损失从 ~580 槽降到 ~290 槽。代价是 KV 精度（旧引擎一直这么跑，无异常记录）。
+覆盖率损失从 ~580 槽降到 ~290 槽。
+> 精度代价有多大：这是 **DeepSeek 官方的 KV 存储格式**（引擎日志会打
+> `Using DeepSeek's fp8_ds_mla KV cache format`，UE8M0 分块缩放），不是民间压缩；
+> 每层每 token 576B（512 维隐变量 + 64 维 rope，各 1 字节）vs bf16 的 1152B，正好减半。
+> 方案 C（旧引擎）默认就是它，一直在生产上跑，没有异常记录。
 
 **F 资源与代价**
 
