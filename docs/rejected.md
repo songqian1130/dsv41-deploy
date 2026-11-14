@@ -87,20 +87,20 @@
   盘后端在这台机器上尤其没意义 —— NVMe 比 PCIe 快，瓶颈在总线不在盘。
   要做的最小验证：接 LMCache 的 CPU 后端 + 8k 会话回放，先在方案 B 上试（有余量）。
 
-## 9. fp8_ds_mla KV 格式给新引擎（V2）的 PP4/PP5 用
+## 9. 显式传 `--kv-cache-dtype fp8_ds_mla` 给新引擎（V2）——启动即死；auto 默认已是它
 
-- **想法**：KV 字节数减半（576B vs 1152B/token/层），1M 池挤掉的专家槽从 ~580 降到 ~290。
-- **实测（2026-11-15 01:45，B [6,6,7,21] bf16→fp8）**：启动即死 ——
-  `NotImplementedError: Compressed-KV source language_model.model.layers.20.attn not found
-  on this rank; PP splits inside a v4.1 kv-sharing group are not supported.`
-- **根因**：V4.1 有 compressed-KV 共享组（多层的 KV 存在组内 source 层上），fp8_ds_mla 布局
-  要求 source 层与它的 consumer 层**同 rank**；[6,6,7,21] 把 layer 20 所在的组切在了 rank 边界。
-  按共享组结构推断，[5,5,5,4,21]（A/C 拓扑）同样切组，**V2 上 PP 分层基本都无法对齐**。
-- **旧引擎 C 为什么能用**：V1 的 fp8_ds_mla 实现没有这个 source-rank 检查。
-- **要启用只能**：重排 PP 分层对齐共享组边界（动 [5,5,5,4,21] 的硬约束，风险未知）或
-  改 V2 源码放宽检查（改引擎，超出调参范围）。
-- **结论**：V2 上放弃 fp8 KV，用 bf16。1M 池 bf16 的代价 = 挤 ~580 专家槽（A：覆盖
-  93.96%→~86%；B：56.25%→~48%），decode −5~10%。**KV 显存账全部按 bf16 口径重算。**
+- **两次实测（2026-11-15 凌晨，B [6,6,7,21] + 1M 池）**：
+  1. 显式 `--kv-cache-dtype fp8_ds_mla` → 3 秒内炸：
+     `NotImplementedError: Compressed-KV source language_model.model.layers.20.attn not
+     found on this rank; PP splits inside a v4.1 kv-sharing group are not supported.`
+  2. **什么都不传（`kv_cache_dtype=auto`）→ 正常启动，且日志明确
+     `Using DeepSeek's fp8_ds_mla KV cache format.`、`Using FP8 indexer cache`，
+     1M 池 Reserving [0.466, 0.845, 0.845, 1.311] GiB（合计 3.47 GiB，bf16 口径会是 ~11.9 GiB）。
+- **结论**：V2 引擎的 `auto` 在 DeepseekV4 上**默认走 fp8_ds_mla**，不需要也不可以显式传参。
+  显式传参会触发另一条初始化路径，提前做「共享 KV 组跨 rank」检查并抛 NotImplementedError；
+  auto 路径不触发（疑似引擎 bug，两条路径行为不一致）。
+- **含义**：① KV 显存本来就按 fp8 口径算，不用再「申请」；② 上面两条 PP 组约束依然存在——
+  显式传参就是死，别再试；③ 1M 池的专家槽代价按实测：B 覆盖 56.25% → **47.4%**（3640/7680）。
 
 ## 一句话总结
 

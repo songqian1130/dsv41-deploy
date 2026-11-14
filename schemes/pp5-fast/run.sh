@@ -69,10 +69,10 @@ CMD=(docker run -d --name "$NAME"
     #    ② 专家覆盖率（93.96%）。若覆盖率明显下滑，先退回 262144 再试。
     --max-model-len 1048576
     --kv-cache-tokens 1048576
-    # ⚠️ fp8_ds_mla 不可用于 PP 分层：V4.1 的 compressed-KV 共享组不能跨 rank，
-    #    会报 NotImplementedError: PP splits inside a v4.1 kv-sharing group are not
-    #    supported（2026-11-15 01:45 实测，B 的 [6,6,7,21] 在 layer 20 炸）。除非
-    #    重排分层对齐共享组边界，否则只能 bf16。
+    # KV 格式：不传 --kv-cache-dtype，auto 默认即 DeepSeek 官方 fp8_ds_mla（日志
+    #    "Using DeepSeek's fp8_ds_mla KV cache format"，1M 池仅 ~3.5 GiB）。⚠️ 千万别显式
+    #    传 fp8_ds_mla——会触发共享 KV 组跨 rank 检查直接 NotImplementedError（实测，见
+    #    docs/rejected.md 第 9 条）。
     --enable-prefix-caching
     --enable-prompt-tokens-details
     --reasoning-parser deepseek_v41

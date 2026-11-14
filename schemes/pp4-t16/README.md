@@ -46,7 +46,7 @@
 
 ```bash
 cd dsv41-deploy
-./deploy.sh pp4-t16                      # 端口默认 9015，可与别的东西共存
+./deploy.sh pp4-t16                      # 端口统一 9010（与方案 A 相同）
 ./deploy.sh pp4-t16 --model /data/DeepSeek-V4.1-Flash-1017-official
 ./deploy.sh pp4-t16 --gpus 0,1,2,3       # 默认就是这四张
 ./deploy.sh pp4-t16 --dry-run            # 只打印命令
@@ -144,29 +144,34 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | 可保住的空闲会话数 | 8k→128 · 16k→64 · 32k→32 · 64k→16（推算） |
 | 实测 | ❌ **一档都没测**。要坐实必须在 B 上跑 `python3 bench/probe_capacity.py table` |
 
-**上限：1M 就是顶，bf16 下装得下（2026-11-15 推算 + 启动实测）**
+**上限：1M 就是顶，✅ 已上机验证（2026-11-15 01:56）**
 
 模型硬顶：`/model/config.json` `text_config.max_position_embeddings = 1048576`，
 再大引擎直接拒绝（`get_and_verify_max_len` 按模型上限校验），没有「超过 1M」的选项。
 
-装不装得下，按 A（V2/PP5/131072 bf16）的启动实测
-`Reserving [0.181, 0.327, 0.327, 0.147, 0.508] GiB KV per worker` 折算层单价，
-换算到 B 的 [6,6,7,21] 拓扑（合计 1.49 GiB 与 A 吻合，交叉验证通过）：
+1M 池在 B 上**实测成功**（health 通过 + 三轮基准）：
 
-| B 的 rank | 层 | bf16 @131072 | **bf16 @1M** | 比 131072 多要 | 折合专家槽（17.9 MiB/个） |
-|---|---|---:|---:|---:|---:|
-| rank0 (L0-5) | 6 | 0.25 GiB | 1.97 GiB | +1.72 GiB | ~98 |
-| rank1 (L6-11) | 6 | 0.39 GiB | 3.14 GiB | +2.75 GiB | ~156 |
-| rank2 (L12-18) | 7 | 0.34 GiB | 2.74 GiB | +2.40 GiB | ~137 |
-| rank3 (L19-39) | 21 | 0.51 GiB | **4.07 GiB** | +3.55 GiB | ~203 |
+- KV 显存：`Reserving [0.466, 0.845, 0.845, 1.311] GiB per worker for 1048576 aggregate tokens`
+  合计 **3.47 GiB**（bf16 口径会是 ~11.9 GiB——引擎 `auto` 默认就是 DeepSeek 官方
+  fp8_ds_mla 格式，日志 `Using DeepSeek's fp8_ds_mla KV cache format`）
+- ⚠️ **不要显式传 `--kv-cache-dtype fp8_ds_mla`**：显式传参走另一条初始化路径，
+  会触发「共享 KV 组跨 rank」检查直接 `NotImplementedError`（实测炸过一次）。
+  auto 路径不触发。见 [`docs/rejected.md`](../../docs/rejected.md) 第 9 条。
+- 专家槽：**3640/7680 = 47.4%**（131k 池时 4320 = 56.25%；1M+fp8 挤掉 ~680 槽）
+- 显存：GPU0-3 各 61.1~61.4 GiB 用满（util 0.99），**GPU4 = 0 MiB** 不变
 
-代价：合计挤掉 **~590 个专家槽**，覆盖率 56.25% → **~48%**，CPU 路由 6.8% → ~9%，
-decode 预计 **−3~6%**（B 本来就低覆盖，边际代价比 A 小）。
+**速度代价（三轮 cases_v1 均值 vs 131k 池基准）**
 
-> **为什么不用 fp8_ds_mla（能省一半）**：它与 PP 分层不兼容 —— V4.1 的 compressed-KV
-> 共享组不能跨 rank，fp8 布局要求 source 层与 consumer 同 rank，[6,6,7,21] 在 layer 20
-> 直接 `NotImplementedError`（2026-11-15 01:45 启动实测）。详见
-> [`docs/rejected.md`](../../docs/rejected.md) 第 9 条。旧引擎 C（V1）不受此限。
+| 用例 | 131k 池 | **1M 池** | 变化 |
+|---|---:|---:|---|
+| code_python | 74.6 | **72.2** | −3.2%（噪声内） |
+| json_struct | 64.4 | **48.4** | **−24.8%** |
+| zh_tech | 47.7 | **38.7** | **−18.9%** |
+| math_steps | 56.8 | **42.3** | **−25.5%** |
+
+代价集中在 CPU 路由敏感的用例（覆盖率掉 8.8 个点、路由占比 6.8%→~15% 量级）；
+code 几乎无损且接受率还升了（0.665→0.791）。这是 1M 池的真实价格，买的是
+4 槽各 256k 上下文 + 空闲会话缓存容量翻 8 倍。
 
 > ⚠️ 全表按启动参数推算。B 是新 V2 引擎 + PP4，**没有上机实测过**；
 > 上面那份上游 PP4 参考是**旧引擎**（`kv_cache_dtype=fp8_ds_mla`、cpu_threads [28,24]），
@@ -205,11 +210,12 @@ decode 预计 **−5~10%**，prefill/TTFT 基本不受影响。
 
 **F 资源与代价**
 
-- 显存：GPU0-3 用满 · **GPU4 = 0 MiB**（这是这个方案唯一的产出）
+- 显存：GPU0-3 各 **61.1~61.4 GiB** 用满（util 0.99，含 1M KV 3.47 GiB）· **GPU4 = 0 MiB**（这个方案唯一的产出）
+- 主机内存：used 172 GB / available 74 GB（专家 bank ~138 GiB 常驻）
 - 专家：覆盖率 **4320/7680 = 56.25%** · GPU 命中 93.18~94.61% · CPU 路由 **6.8%（方案 A 的 25 倍）**
 - CPU：PP3（最后一段）decode 16 线程饱和
 - 主机内存：~150 GiB（20 层 CPU 专家 bank 138 GiB）
-- 服务启动时长：未测（约 9 分钟量级，未计时）
+- **服务启动时长：10 分 17 秒**（2026-11-15 实测：容器创建→health。上下文 1:17 → 权重+KV 预留 2:08 → engine init 4:24 → 专家缓存计划 2:43 → 起服务 0:18）
 
 **G 判定与边界**
 
@@ -252,6 +258,6 @@ python3 probe_capacity.py table   --kv-tokens 1048576 --seqs 4
 | 文件 | 作用 |
 |---|---|
 | `deploy.sh` | 一键部署（4 卡预检 + 等健康） |
-| `run.sh` | `docker run`，默认端口 9015 |
+| `run.sh` | `docker run`，端口 9010（全方案统一，无密钥） |
 | `meta.json` | 数据源，供根目录 `index.html` 生成 |
 | `README.md` | 本文件 |

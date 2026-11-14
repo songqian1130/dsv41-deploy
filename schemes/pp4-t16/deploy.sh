@@ -20,7 +20,7 @@ usage() {
 用法：$(basename "$0") [选项]
   --dry-run        只打印 docker 命令
   --stop           停止并删除容器
-  --port N         端口（默认 9015）
+  --port N         端口（默认 9010，全方案统一）
   --model PATH     模型目录
   --gpus 0,1,2,3   卡号
 环境变量：DSV41_MODEL / DSV41_IMAGE / DSV41_PORT / DSV41_GPUS / DSV41_NAME / DSV41_CACHE
@@ -30,7 +30,7 @@ EOF
 parse_args "$@"
 
 NAME=${DSV41_NAME:-dsv41-pp4-t16}
-PORT=${DSV41_PORT:-9015}
+PORT=${DSV41_PORT:-9010}
 MODEL=${DSV41_MODEL:-/run/media/xpz/models/DeepSeek-V4.1-Flash-1017-official}
 DEFAULT_IMAGE=18gogogo/170hx4-256r-dsv41-1017-flash:sm80
 DEFAULT_ID=sha256:4e08e1c9231ea62355e58a29702970c2c993dc7f2b6993b191efea1ddf100157

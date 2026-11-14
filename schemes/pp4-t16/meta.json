@@ -64,13 +64,32 @@
   },
   "capacity": {
     "max_model_len": 1048576,
-    "kv_pool": "1,048,576 聚合 token（参数与上游 PP4 参考一致，待上机验证）",
-    "slots": "4（第 5 个排队）",
-    "budget": "1,048,576 全池共享 → 262,144/槽（推算，未实测）",
+    "kv_pool": "1,048,576 聚合 token ✅ 已上机验证：Reserving [0.466, 0.845, 0.845, 1.311] GiB，合计 3.47 GiB",
+    "slots": "4（第 5 个排队，不淘汰别人的 KV）",
+    "budget": "1,048,576 全池共享 → 4 槽各 262,144（推算）",
     "per_stream": "262,144（推算）",
     "retain": "8k→128 · 16k→64 · 32k→32 · 64k→16（推算）",
-    "overflow": "未测",
-    "kv_dtype": "bf16（fp8_ds_mla 与 PP 分层不兼容，2026-11-15 01:45 实测 NotImplementedError）"
+    "overflow": "未测（1M 池下 4×37k 仅占 14%，大概率无感）",
+    "kv_dtype": "fp8_ds_mla（auto 默认启用，✅ 实测生效；⚠️ 显式传参会启动失败）",
+    "startup": "✅ 实测 10 分 17 秒（容器创建→health）：上下文 1:17 → 权重+KV 预留 2:08 → engine init 4:24 → 专家缓存计划 2:43 → 起服务 0:18",
+    "measured_20261115": {
+      "kv_gib": 3.47,
+      "expert_slots": "3640/7680 = 47.4%（131k 池时 4320/7680 = 56.25%）",
+      "gpu": "GPU0-3 各 61.1~61.4 GiB 用满，GPU4 = 0 MiB",
+      "host_mem": "used 172 GB / available 74 GB",
+      "speed_3seed_mean": {
+        "code_python": 72.2,
+        "json_struct": 48.4,
+        "zh_tech": 38.7,
+        "math_steps": 42.3
+      },
+      "speed_vs_131k": {
+        "code_python": "−3.2%（噪声内）",
+        "json_struct": "−24.8%",
+        "zh_tech": "−18.9%",
+        "math_steps": "−25.5%"
+      }
+    }
   },
   "cost": {
     "coverage_pct": 56.25,
