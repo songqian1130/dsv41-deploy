@@ -144,8 +144,36 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | 可保住的空闲会话数 | 8k→128 · 16k→64 · 32k→32 · 64k→16（推算） |
 | 实测 | ❌ **一档都没测**。要坐实必须在 B 上跑 `python3 bench/probe_capacity.py table` |
 
-> ⚠️ 全表按启动参数推算。B 的显存比 A 松（GPU4 空出来），KV 加大不挤专家预算，
-> 风险主要在启动阶段装不装得下。
+> ⚠️ 全表按启动参数推算。B 是新 V2 引擎 + PP4，**没有上机实测过**；
+> 上面那份上游 PP4 参考是**旧引擎**（`kv_cache_dtype=fp8_ds_mla`、cpu_threads [28,24]），
+> 它的 KV 显存数字不能直接搬到 B。
+
+**1M 池的显存账（2026-11-15 按 V2 实测外推，未上机验证）**
+
+A（V2、PP5、131072 池）的启动日志实测：`Reserving [0.181, 0.327, 0.327, 0.147, 0.508] GiB KV per worker`
+—— 即 V2 每 131,072 token 的 KV 池共 **1.49 GiB**（40 层）。线性外推：
+
+| 池大小 | KV 总量（40 层） | 相对 131072 增量 | 折合专家槽（17.9 MiB/个） |
+|---|---:|---:|---:|
+| 131,072（现状） | 1.49 GiB | — | — |
+| 524,288 | 5.96 GiB | +4.5 GiB | ~250 个 |
+| **1,048,576** | **11.92 GiB** | **+10.4 GiB** | **~580 个** |
+
+**结论：装得下，但不是免费的。** KV 是先预留、专家缓存吃剩余（引擎源码
+`kv_cache_utils.py` 的 `reserved_memory = min(memory, required)`），所以 1M 池
+挤掉的是 **~580 个 GPU 专家槽**，专家覆盖率估计从 93.96% 掉到 **~86%**
+（参照：batched 8192 实验覆盖率 93.96→88.54%，decode 掉 2~7%）。
+decode 预计 **−5~10%**，prefill/TTFT 基本不受影响。
+
+**两条安全网（源码已核实）：**
+
+1. 启动时硬校验：`KV cache budget of X tokens requires Y GiB on worker N, but only Z GiB is available`
+   —— 真不够会**直接报错拒绝启动**，不会静默挤爆或 OOM。
+2. 图校准有 `required free` 检查（A 实测每卡要求 1.85~2.33 GiB 余量），不满足同样报错。
+
+**想省一半代价**：给 run.sh 加 `--kv-cache-dtype fp8_ds_mla`（V2 已实现该布局，
+`deepseek_v4_1/attention.py:113`，旧引擎 C 的默认值就是它），KV 字节数减半，
+覆盖率损失从 ~580 槽降到 ~290 槽。代价是 KV 精度（旧引擎一直这么跑，无异常记录）。
 
 **F 资源与代价**
 
