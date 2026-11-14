@@ -144,7 +144,7 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | 可保住的空闲会话数 | 8k→128 · 16k→64 · 32k→32 · 64k→16（推算） |
 | 实测 | ❌ **一档都没测**。要坐实必须在 B 上跑 `python3 bench/probe_capacity.py table` |
 
-**上限：1M 就是顶，且 fp8 下装得下（2026-11-15 推算）**
+**上限：1M 就是顶，bf16 下装得下（2026-11-15 推算 + 启动实测）**
 
 模型硬顶：`/model/config.json` `text_config.max_position_embeddings = 1048576`，
 再大引擎直接拒绝（`get_and_verify_max_len` 按模型上限校验），没有「超过 1M」的选项。
@@ -153,19 +153,20 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 `Reserving [0.181, 0.327, 0.327, 0.147, 0.508] GiB KV per worker` 折算层单价，
 换算到 B 的 [6,6,7,21] 拓扑（合计 1.49 GiB 与 A 吻合，交叉验证通过）：
 
-| B 的 rank | 层 | bf16 @131072 | **fp8 @1M（最重档）** | 比 bf16@131072 多要 | 折合专家槽（17.9 MiB/个） |
+| B 的 rank | 层 | bf16 @131072 | **bf16 @1M** | 比 131072 多要 | 折合专家槽（17.9 MiB/个） |
 |---|---|---:|---:|---:|---:|
-| rank0 (L0-5) | 6 | 0.25 GiB | 0.99 GiB | +0.87 GiB | ~49 |
-| rank1 (L6-11) | 6 | 0.39 GiB | 1.57 GiB | +1.37 GiB | ~78 |
-| rank2 (L12-18) | 7 | 0.34 GiB | 1.37 GiB | +1.20 GiB | ~69 |
-| rank3 (L19-39) | 21 | 0.51 GiB | **2.03 GiB** | +1.78 GiB | ~102 |
+| rank0 (L0-5) | 6 | 0.25 GiB | 1.97 GiB | +1.72 GiB | ~98 |
+| rank1 (L6-11) | 6 | 0.39 GiB | 3.14 GiB | +2.75 GiB | ~156 |
+| rank2 (L12-18) | 7 | 0.34 GiB | 2.74 GiB | +2.40 GiB | ~137 |
+| rank3 (L19-39) | 21 | 0.51 GiB | **4.07 GiB** | +3.55 GiB | ~203 |
 
-代价：合计挤掉 **~300 个专家槽**（约 4%），覆盖率 56.25% → **~52%**，
-CPU 路由 6.8% → ~7.5%，decode 预计 **−1~2%**。B 本来就是低覆盖方案，
-这些「挤掉的槽」全部落在 CPU 路由上，边际代价比 A 小得多。
+代价：合计挤掉 **~590 个专家槽**，覆盖率 56.25% → **~48%**，CPU 路由 6.8% → ~9%，
+decode 预计 **−3~6%**（B 本来就低覆盖，边际代价比 A 小）。
 
-对照：如果不加 fp8（bf16），1M 池最重的 rank3 要 **4.07 GiB**，
-挤掉 ~570 槽（覆盖率 56% → ~48%）。fp8 把这笔代价砍半。
+> **为什么不用 fp8_ds_mla（能省一半）**：它与 PP 分层不兼容 —— V4.1 的 compressed-KV
+> 共享组不能跨 rank，fp8 布局要求 source 层与 consumer 同 rank，[6,6,7,21] 在 layer 20
+> 直接 `NotImplementedError`（2026-11-15 01:45 启动实测）。详见
+> [`docs/rejected.md`](../../docs/rejected.md) 第 9 条。旧引擎 C（V1）不受此限。
 
 > ⚠️ 全表按启动参数推算。B 是新 V2 引擎 + PP4，**没有上机实测过**；
 > 上面那份上游 PP4 参考是**旧引擎**（`kv_cache_dtype=fp8_ds_mla`、cpu_threads [28,24]），

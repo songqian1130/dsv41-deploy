@@ -42,8 +42,7 @@
     "kv_tokens": "1048576（2026-11-15 起，模型原生上限，待上机验证）",
     "batched_tokens": "4096",
     "max_model_len": "1048576",
-    "engram": "SSD · 4 GiB 缓存",
-    "kv_dtype": "fp8_ds_mla（DeepSeek 官方格式，2026-11-15 起，待上机验证）"
+    "engram": "SSD · 4 GiB 缓存"
   },
   "decode": {
     "code_python": 100.1,
@@ -115,7 +114,7 @@
         "≈30.1 s"
       ]
     ],
-    "kv_dtype": "fp8_ds_mla：KV 显存减半（576B/token/层 vs bf16 1152B）"
+    "kv_dtype": "bf16（fp8_ds_mla 与 PP 分层不兼容：共享 KV 组不能跨 rank，2026-11-15 实测炸）"
   },
   "cost": {
     "coverage_pct": 93.96,

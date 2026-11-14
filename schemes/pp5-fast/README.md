@@ -168,8 +168,9 @@ D2 真实 4 路（每路输入 2.5k tok，输出 300 tok）
 > **KV 不是这项变更的瓶颈，专家覆盖率才是**（1M 池比 131072 多吃 ~10.4 GiB ≈ ~580 个
 > 专家槽，覆盖率估计 93.96% → ~86%，decode 预计 −5~10%；详细账目见
 > [`schemes/pp4-t16/README.md`](../pp4-t16/README.md) 的「1M 池的显存账」，
-> 已于 2026-11-15 落地 `--kv-cache-dtype fp8_ds_mla`：bf16 下 1M 池最重的 GPU4
-> 要 4.07 GiB、余量只有 ~4.7 GiB 太贴边，fp8 后只要 2.03 GiB，富余 2.6 GiB） ——
+> bf16 下 1M 池最重的 GPU4 要 4.07 GiB、余量 ~4.7 GiB，贴边但装得下；
+> ~~fp8_ds_mla 可省一半~~ **不可用**：它与 PP 分层不兼容（共享 KV 组不能跨 rank，
+> 2026-11-15 实测 NotImplementedError，见 [`docs/rejected.md`](../../docs/rejected.md) 第 9 条）） ——
 > 上机验证看两处：① 各 rank `Hybrid cache budget: KV=` 行；② 覆盖率是否还在 93.96% 附近。
 > 覆盖率明显下滑就先退 262,144。
 
