@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # build.sh — 从零重建新引擎 V2 镜像（方案 A / B）
 #
-# 说明：这是**主路径** —— 仓库里只有 236 KB 的配方（源地址 + patch + freeze + Containerfile），
+# 说明：这是**主路径** —— 仓库里只有 260 KB 的配方（源地址 + patch + freeze + Containerfile），
 #       重建不依赖任何镜像存档。离线整包（tools/engine-bundle.sh save）只是无外网时的应急副本。
 #       ⚠️ 唯一不在仓库里的是 191 MB 编译产物；重建后可用 load-so 覆盖成实测那一份，
 #          这样 100.1 tok/s 等基准数字仍可沿用（编译时间不会因此减少）。

@@ -10,8 +10,8 @@
 #   ./tools/engine-bundle.sh load-so x.tar.zst --into <镜像>            # 覆盖 .so 后 commit
 #
 # 定位：整包（save/load）是**无外网时的应急副本**，20~25 GB，永不进 git。
-#       真正的可复现主路径是 engine/<引擎>/build.sh（源码 + patch + freeze，236 KB）。
-#       save-so 补的是唯一不可再生的那 191 MB 编译产物 —— 它不省编译时间，
+#       真正的可复现主路径是 engine/<引擎>/build.sh（源码 + patch + freeze，260 KB）。
+#       save-so 补的是那 191 MB 编译产物（源码能重编，但不保证逐字节相同）—— 它不省编译时间，
 #       但能让重建出来的引擎在性能上等同原引擎，历史基准数字可直接沿用。
 set -Eeuo pipefail
 
@@ -61,8 +61,8 @@ list)
   echo "  v2-dspark  方案 A/B 共用；第三方 fork 镜像，是否公开可拉未验证"
   echo "  v1-legacy  方案 C；local/ 前缀，从未推送，重建走 engine/v1-legacy/build.sh"
   echo "  来源与补丁：engine/<引擎>/SOURCE.md"
-  echo "  可复现主路径：engine/<引擎>/build.sh（236 KB 配方，不依赖镜像存档）"
-  echo "  本脚本的 save/save-so 只是把「无外网时的应急副本」和「唯一不可再生的 191 MB .so」留一份"
+  echo "  可复现主路径：engine/<引擎>/build.sh（260 KB 配方，不依赖镜像存档）"
+  echo "  本脚本的 save/save-so 只是把「无外网时的应急副本」和「不保证逐字节相同的 191 MB .so」留一份"
   ;;
 
 save)

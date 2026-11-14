@@ -85,13 +85,13 @@ git clone <this-repo> dsv41-deploy && cd dsv41-deploy
 ./tools/verify-sources.sh     # OK / DRIFT / GONE / NET，任何一条变了都会报出来
 ```
 
-### 47.6 GB 里，只有 191 MB 是真正不可再生的
+### 47.6 GB 里，只有 191 MB 不能保证「编出来一模一样」
 
 | 组成 | 大小 | 要存吗 |
 |---|---:|---|
 | CUDA 基础镜像 + torch + 194 个包 + 源码树 | 47.4 GB | ❌ 记得住地址就能重下（版本已 freeze） |
 | 我们改的两个补丁（`0003` + `0005`） | 10 KB | ✅ 已在 `engine/` |
-| **5 个编译产物 `.so`** | **191 MB** | ⚠️ **唯一不可再生**，待导 GitHub Release |
+| **5 个编译产物 `.so`** | **191 MB** | ⚠️ 源码在、随时能重编，但不保证逐字节相同 → 待导 GitHub Release |
 
 所以按手上的条件选一条，**不是二选一**：
 
@@ -175,7 +175,7 @@ dsv41-deploy/
 │   ├── run_cases.py          单流四档 + C1/C2/C3
 │   ├── probe_capacity.py     并发 / prefill / 容量
 │   └── results|capacity.jsonl  原始结果
-├── engine/                   ★ 引擎配方（260 KB）：镜像 99.6% 是公开资源，只有 191 MB .so 不可再生
+├── engine/                   ★ 引擎配方（260 KB）：镜像 99.6% 是公开资源，只有 191 MB .so 不保证逐字节相同
 │   ├── README.md             体积拆解 / 三种还原法 / 来源 / 补丁 / 还缺什么
 │   ├── LINKS.md              ★ 外部依赖清单：每个 commit / raw URL / digest / revision + sha256
 │   ├── REBUILD.md            ★ 从基础镜像+源码重建：逐项改动清单与验证状态
