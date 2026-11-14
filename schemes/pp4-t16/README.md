@@ -130,8 +130,14 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | 项 | 值 |
 |---|---|
 | max_model_len | 131,072（同方案 A） |
-| KV 池 | 未单独测（显存分配不同，需重跑 `probe_capacity.py table`） |
-| 4 路均分每路上下文 | 未测 |
+| KV 池 | **按参数应为 131,072 聚合 token**（`--kv-cache-tokens 131072` 与 A 同一行参数） |
+| 并发会话槽上限 | **4**（`max_num_seqs=4`）。第 5 个排队等位，不淘汰已在跑的会话 |
+| 4 路均分每路上下文 | **32,768**（131,072 ÷ 4，按参数**推算**） |
+| 实测 | ❌ **一档都没测**。B 只测了单流、22k TTFT 和三档并发 pending，没跑过 `probe_capacity.py table` |
+
+> ⚠️ 这张表是**按启动参数推的，不是量出来的**。B 用 4 卡、`gpu-memory-utilization 0.99`，
+> 显存比 A 多空出一张卡但少一个 PP 段，KV 能不能真按 131,072 分配出来没验证过。
+> 要坐实必须在 B 上跑一次 `python3 bench/probe_capacity.py table`。
 
 **F 资源与代价**
 

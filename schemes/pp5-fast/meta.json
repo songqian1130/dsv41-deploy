@@ -71,9 +71,11 @@
   },
   "capacity": {
     "max_model_len": 131072,
-    "kv_pool": "131,072 聚合 token",
+    "kv_pool": "131,072 聚合 token（22.37 GiB）",
+    "slots": "4（第 5 个排队，不淘汰别人的 KV）",
+    "budget": "131,072 token 全池共享 → 4 槽均分 32,768，刚好占满、零余量",
     "per_stream": "32,768",
-    "overflow": "4×37k → 聚合 1.7 tok/s"
+    "overflow": "4×37k（149,581 token）→ 聚合 62.4 → 1.7 tok/s，不报错，是 prefill 被串行化"
   },
   "cost": {
     "coverage_pct": 93.96,

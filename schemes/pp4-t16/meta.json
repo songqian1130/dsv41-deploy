@@ -62,7 +62,14 @@
     "prefill_tok_s": null,
     "fixed_s": null
   },
-  "capacity": null,
+  "capacity": {
+    "max_model_len": 131072,
+    "kv_pool": "131,072 聚合 token（启动参数同 A，未单独实测）",
+    "slots": "4（第 5 个排队）",
+    "budget": "131,072 全池共享 → 32,768/槽（按参数推算，未实测）",
+    "per_stream": "32,768（推算）",
+    "overflow": "未测"
+  },
   "cost": {
     "coverage_pct": 56.25,
     "cpu_route_pct": 6.8,
