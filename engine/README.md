@@ -43,7 +43,7 @@
 | apt 工具链 + uv | 246 MB | apt / astral.sh | ❌ 公开 |
 | `torch==2.13.0` (+vision/audio) | 9.6 GB | `download.pytorch.org/whl/cu130` | ❌ 公开，版本已在 `requirements.freeze.txt` |
 | 其余 194 个包 | 13.5 GB | PyPI | ❌ 公开，版本已 freeze |
-| fork 源码树（含 260 MB `.git`） | 408 MB | `git clone` [buliaoyin/vllm-backport](https://github.com/buliaoyin/vllm-backport) 后 checkout `c3d3104de0` | ❌ 公开（只要仓库还在） |
+| fork 源码树（含 260 MB `.git`） | 408 MB | `git clone` [buliaoyin/vllm-backport](https://github.com/buliaoyin/vllm-backport) 后 checkout `c3d3104de0` | ❌ 公开 |
 | **5 个编译产物 `.so`** | **191 MB** | 源码编译，但编译器版本没钉死 | ⚠️ **能重编，不保证逐字节相同** |
 | **我们那 74 行改动** | **8.3 KB** | patch | ✅ 已在 `patches/` |
 
@@ -268,32 +268,27 @@ docker run --rm -v "$PWD/engine/v2-dspark/patches:/p:ro" --entrypoint bash <镜�
 
 ## 七、诚实清单：现在还缺什么
 
-按「影响还原能力」排序，前三条是真缺口：
+按「影响还原能力」排序，前两条是真缺口：
 
 1. **那 5 个 `.so`（191 MB）还没导出** —— 源码能重编，但重编不保证和现在这份逐字节相同，
    所以它是「性能基准锚点」而不是「唯一副本」，至今只存在于运行中的镜像里。
    导出后应进 GitHub Release（单文件 <2 GB），重建完用 `load-so` 覆盖回去（`build.sh` 无法跳过编译，
    因为 `pip install -e .` 一定会编译），换来的是「性能等同原引擎、历史基准可直接沿用」。
    这是当前最该补的一件事。
-2. **fork 源码树本机没有副本** —— 这条比 `.so` 更硬。`buliaoyin/vllm-backport@c3d3104de`
-   是 `vllm/models/deepseek_v4_1/` 的唯一来源，本机工作区已确认没有任何副本，
-   目前只存在于 GitHub 和那台运行中的镜像里（`/workspace/vllm-backport`，含 260 MB `.git`）。
-   仓库若被删，那 191 MB 的 `.so` 留着也编不出新版本、改不了参数。
-   要真兜底，导 **408 MB 源码树**比导 `.so` 更值。
-3. **两个 `build.sh` 都没有在干净机器上端到端跑通过** —— 配方是按 `docker history` 反推的，
+2. **两个 `build.sh` 都没有在干净机器上端到端跑通过** —— 配方是按 `docker history` 反推的，
    原作者没留 Dockerfile。逻辑上完整（每个文件、每行改动、每个包版本都有出处），但没有「跑通了」的实证。
    要坐实，需要在能上网的机器上跑一次（40~90 分钟 + 60~80 GB 磁盘）。
-4. **`18gogogo` 镜像是否公开可拉，未验证**（本机无 Docker Hub 访问）。要确认，请在能上网的机器上
+3. **`18gogogo` 镜像是否公开可拉，未验证**（本机无 Docker Hub 访问）。要确认，请在能上网的机器上
    `docker manifest inspect 18gogogo/170hx4-256r-dsv41-1017-flash:sm80`。
    注意：即使能拉，它也只算整包的替代品，不能替代「配方 + `.so`」。
-5. **完整离线包未导出**（合计压缩后约 32~40 GB）—— 这是应急物资，优先级低于第 1 条。
+4. **完整离线包未导出**（合计压缩后约 32~40 GB）—— 这是应急物资，优先级低于第 1 条。
    跑 `tools/engine-bundle.sh save` 之前它会先算剩余空间，不够会拒绝。
-6. ~~**A/B 的 74 行补丁来源不明**~~ → **已查明（2026-11-14）**：它就是
+5. ~~**A/B 的 74 行补丁来源不明**~~ → **已查明（2026-11-14）**：它就是
    `LocalFrameLab/deepseek-v41-cmp170hx-x99` 的 `patches/x99-stable.patch`（Apache-2.0），
    **逐行相同，我们一个字没改**。证据见 [`v2-dspark/PROVENANCE.md`](v2-dspark/PROVENANCE.md)。
    镜像里显示「未提交」是因为上游作者构建时直接 COPY 了带改动的工作树，不是没公开。
-7. **C 的重建配方刚纠正（2026-11-14 夜）**：正确顺序是 `d63af5a` + 0001 + 0002 + 0005，
+6. **C 的重建配方刚纠正（2026-11-14 夜）**：正确顺序是 `d63af5a` + 0001 + 0002 + 0005，
    已实测能复现镜像内 9 个 Python 文件的 blob。但 `build.sh` 仍未在干净机器上端到端跑过
    （需 GitHub + 基础镜像 + 40~90 分钟编译）。
-8. **方案 C 的 0003 未进镜像这件事，是本次复核才发现的**：说明「归档快照 = 镜像」不能靠推测，
+7. **方案 C 的 0003 未进镜像这件事，是本次复核才发现的**：说明「归档快照 = 镜像」不能靠推测，
    只能对 blob。A/B 那边是 `git status -uall` 直接读的，可信度更高（无未跟踪文件）。
