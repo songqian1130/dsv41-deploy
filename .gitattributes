@@ -1,0 +1,17 @@
+# ── 补丁是签过 sha256 的字节，禁止任何行尾转换 ──────────────────
+# 有这一条，Windows 上 core.autocrlf=true 也不会把 .patch 变成 CRLF，
+# 否则 clone 下来 sha256 全变、git apply 直接失败。
+*.patch  -text
+*.diff   -text
+
+# ── 其余文本统一 LF（脚本按 LF 写的，build.sh 里有 heredoc） ──────
+*.sh          text eol=lf
+*.py          text eol=lf
+*.json        text eol=lf
+*.jsonl       text eol=lf
+*.txt         text eol=lf
+*.md          text eol=lf
+*.html        text eol=lf
+Containerfile text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf

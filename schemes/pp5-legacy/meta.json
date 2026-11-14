@@ -1,0 +1,90 @@
+{
+  "id": "pp5-legacy",
+  "order": 3,
+  "name": "PP5 · legacy",
+  "short": "5 卡 · V1 旧引擎",
+  "status": "legacy",
+  "status_text": "上一代生产",
+  "headline": "单流 43.5 tok/s，但启动只要 4:30，ITL 23 ms 比新引擎还低",
+  "folder": "schemes/pp5-legacy",
+  "deploy_cmd": "./deploy.sh pp5-legacy",
+  "engine": {
+    "family": "旧引擎 V1",
+    "image": "local/deepseek-v41-official-pp5:aiultrayang-async-ssd-pp5-lazy-20261102",
+    "image_id": "sha256:4f7370a2a284f3def000accec49ed92be7d082e7e9a5e79c1f12e82b03b097b1",
+    "size_gb": 29.7,
+    "version": "V1 Model Runner + 惰性接收",
+    "spec": "无投机解码（每步 1 token）",
+    "patched": true,
+    "patched_note": "本机两阶段构建：打 0001+0002+0005 三个补丁，再编译 libdsv41_cuda.so；镜像名带 local/ 前缀，从未推送",
+    "source": "https://github.com/344303947/dsv41-flash-pp5-170hx @ d63af5a472（第三方 fork）",
+    "patch_author": "aiultrayang（https://github.com/aiultrayang/deepseek-v41-flash-cmp170hx）的 0001 预热 / 0002 engram-SSD + 本仓库的 0005 惰性接收（+37/−9）",
+    "patch_note": "重建只用 3 个：0001 + 0002 + 0005。0003 是没进镜像的旧实验、0004 是含 0003 的旧快照，这两个都用不到",
+    "pullable": "no-registry",
+    "restore": [
+      "rebuild",
+      "load"
+    ],
+    "detail": "engine/v1-legacy/SOURCE.md"
+  },
+  "hardware": {
+    "gpus": 5,
+    "gpu_ids": "0-4",
+    "gpu4_free": false,
+    "host_mem_gib": 189,
+    "startup": "4:30",
+    "startup_s": 270,
+    "startup_note": "engram=ram 时约 11:00（189 GiB pinned 分配）"
+  },
+  "params": {
+    "pipeline_layers": "[8,8,8,8,8] 默认均分",
+    "cpu_threads": "无（专家 100% 在卡）",
+    "spec_k": "无",
+    "kv_tokens": "未测",
+    "batched_tokens": "2048",
+    "max_model_len": "262144",
+    "engram": "SSD 8 GiB / RAM 189 GiB 可选"
+  },
+  "decode": {
+    "code_python": 43.46,
+    "json_struct": 43.56,
+    "zh_tech": 43.42,
+    "math_steps": 43.45,
+    "mean": 43.5,
+    "itl_ms": 23.1,
+    "worst": null,
+    "note": "engram=ram 实测；legacy(SSD) 同引擎，客户端口径 41.8"
+  },
+  "concurrency": {
+    "conc": 3,
+    "per_stream": 21.65,
+    "aggregate": 43.92,
+    "itl_ms": 46.3,
+    "ttft_max_s": null,
+    "note": "3 路聚合 = 单流，完全不扩展；4 路未测"
+  },
+  "ttft": {
+    "short": "0.33~0.47",
+    "cold_22k": 6.45,
+    "repeat_22k": null,
+    "prefill_tok_s": null,
+    "fixed_s": null
+  },
+  "capacity": {
+    "max_model_len": 262144,
+    "kv_pool": "未测",
+    "per_stream": "未测",
+    "overflow": "未测"
+  },
+  "cost": {
+    "coverage_pct": 100,
+    "cpu_route_pct": 0,
+    "cards": "5/5",
+    "note": "专家全在卡，无 cache miss；engram=ram 吃 189 GiB 内存"
+  },
+  "verdict": "🕘 已被方案 A 取代",
+  "good_at": "启动最快 · 22k TTFT 6.45 s（ram 模式）· 速度与内容无关永不抖",
+  "bad_at": "并发零扩展 · 单流只有 A 的一半 · 镜像不在 registry",
+  "rollback": "./deploy.sh pp5-legacy --stop",
+  "detail": "schemes/pp5-legacy/README.md"
+}

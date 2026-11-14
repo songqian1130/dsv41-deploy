@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSV41 部署方案对比</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#111827; --ink-2:#4b5563; --ink-3:#8b95a5;
+    --line:#e5e7eb; --line-2:#f0f1f4;
+    --blue:#2563eb; --blue-bg:#eff4ff;
+    --amber:#b45309; --amber-bg:#fef6e7;
+    --slate:#475569; --slate-bg:#f1f4f8;
+    --green:#15803d; --green-bg:#eefaf1;
+    --radius:12px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1115; --panel:#171a21; --ink:#e8eaee; --ink-2:#a9b1bf; --ink-3:#7b8494;
+      --line:#262b35; --line-2:#1e222a;
+      --blue:#7aa2ff; --blue-bg:#1b2438;
+      --amber:#e0a45e; --amber-bg:#2c2418;
+      --slate:#9aa7b8; --slate-bg:#1d222b;
+      --green:#6ddc94; --green-bg:#16281d;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-feature-settings:"tnum" 1;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:0 24px}
+  a{color:var(--blue); text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .hero{padding:56px 0 28px; border-bottom:1px solid var(--line)}
+  .eyebrow{margin:0 0 10px; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+  h1{margin:0 0 12px; font-size:36px; line-height:1.2; letter-spacing:-.02em}
+  .lede{margin:0; max-width:760px; color:var(--ink-2); font-size:16px}
+  .lede code{font-family:var(--mono); font-size:13px; background:var(--line-2); padding:2px 6px; border-radius:5px}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:20px}
+  .chip{font-size:13px; color:var(--ink-2); background:var(--panel); border:1px solid var(--line);
+        padding:5px 11px; border-radius:999px}
+  .chip b{color:var(--ink); font-weight:600}
+
+  main{padding:34px 0 10px}
+  section{margin-bottom:34px}
+  h2{font-size:20px; margin:0 0 6px; letter-spacing:-.01em}
+  .sub{margin:0 0 16px; color:var(--ink-3); font-size:13.5px}
+  .warn{margin:0 0 18px; padding:13px 15px; border-radius:10px; font-size:13px; line-height:1.75;
+        background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12}
+  .warn code{font-family:var(--mono); font-size:12px; background:#ffedd5; padding:1px 5px; border-radius:4px}
+  @media (prefers-color-scheme:dark){
+    .warn{background:#2a1c0e; border-color:#5c3a13; color:#fbcfa0}
+    .warn code{background:#3a2711}
+  }
+
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+  @media (max-width:900px){ .cards{grid-template-columns:1fr} }
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+        padding:20px 20px 18px; display:flex; flex-direction:column; gap:12px; position:relative; overflow:hidden}
+  .card::before{content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--c)}
+  .card.p1{--c:var(--blue)} .card.p2{--c:var(--amber)} .card.p3{--c:var(--slate)}
+  .card .top{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .card h3{margin:0; font-size:17px}
+  .pill{font-size:12px; padding:3px 9px; border-radius:999px; white-space:nowrap; font-weight:600}
+  .pill.production{color:var(--green); background:var(--green-bg)}
+  .pill.backup{color:var(--amber); background:var(--amber-bg)}
+  .pill.legacy{color:var(--slate); background:var(--slate-bg)}
+  .big{display:flex; align-items:baseline; gap:6px}
+  .big b{font-size:40px; line-height:1; letter-spacing:-.03em}
+  .big span{font-size:13px; color:var(--ink-3)}
+  .card .hl{margin:0; color:var(--ink-2); font-size:14px}
+  .kv{display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:13.5px; color:var(--ink-2)}
+  .kv dt{color:var(--ink-3)} .kv dd{margin:0; color:var(--ink)}
+  .card .eng{font-family:var(--mono); font-size:11.5px; color:var(--ink-3); word-break:break-all}
+  .cmd{margin-top:auto; display:flex; align-items:center; gap:8px; background:var(--line-2);
+       border-radius:8px; padding:8px 10px; font-family:var(--mono); font-size:12px; color:var(--ink-2)}
+  .cmd code{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .cmd button{border:1px solid var(--line); background:var(--panel); color:var(--ink-2);
+       border-radius:6px; padding:2px 8px; font-size:11px; cursor:pointer; font-family:inherit}
+  .cmd button:hover{color:var(--blue); border-color:var(--blue)}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:22px 22px 18px}
+  .scroll{overflow-x:auto; margin:0 -6px}
+  /* 引擎表左侧是行名，右侧三列内容都很长（镜像名/ID/来源），固定布局让它换行而不是撑破 */
+  #engines{table-layout:fixed}
+  #engines th:first-child, #engines td:first-child{width:132px}
+  #engines td{word-break:break-all}
+  table{border-collapse:collapse; width:100%; font-size:14px; min-width:640px}
+  th,td{padding:9px 12px; text-align:right; border-bottom:1px solid var(--line-2); white-space:nowrap}
+  th:first-child, td:first-child{text-align:left; color:var(--ink-2); font-weight:500}
+  thead th{font-size:12.5px; color:var(--ink-3); font-weight:600; border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:var(--line-2)}
+  td.best{color:var(--green); font-weight:700}
+  td.best::after{content:" ▲"; font-size:10px; vertical-align:1px}
+  td.na{color:var(--ink-3)}
+  td.verdict{font-weight:600}
+  .foot{margin:14px 2px 0; font-size:12.5px; color:var(--ink-3); line-height:1.6}
+
+  .bars{display:flex; flex-direction:column; gap:18px}
+  .bargroup{display:grid; grid-template-columns:130px 1fr; gap:14px; align-items:center}
+  @media (max-width:640px){ .bargroup{grid-template-columns:1fr} }
+  .bargroup .name{font-size:13.5px; color:var(--ink-2); font-family:var(--mono)}
+  .rows{display:flex; flex-direction:column; gap:6px}
+  .bar{display:grid; grid-template-columns:78px 1fr 62px; gap:10px; align-items:center; font-size:12.5px}
+  .bar .who{color:var(--ink-3)}
+  .track{height:16px; background:var(--line-2); border-radius:4px; overflow:hidden}
+  .fill{display:block; height:100%; border-radius:4px; background:var(--c); opacity:.85}
+  .bar .val{text-align:right; font-variant-numeric:tabular-nums; color:var(--ink-2)}
+  .bar.na .track{background:repeating-linear-gradient(45deg,var(--line-2),var(--line-2) 5px,transparent 5px,transparent 10px)}
+  .bar.na .val{color:var(--ink-3)}
+
+  pre{background:var(--line-2); border-radius:10px; padding:14px 16px; overflow-x:auto; margin:12px 0 0}
+  pre code{font-family:var(--mono); font-size:13px; color:var(--ink)}
+  .hint{font-size:13px; color:var(--ink-3); margin:10px 0 0}
+  footer{border-top:1px solid var(--line); margin-top:20px; padding:26px 0 48px; color:var(--ink-3); font-size:13px}
+  footer b{color:var(--ink-2)}
+  footer ol{margin:10px 0 0; padding-left:20px}
+  footer li{margin:4px 0}
+  .status-legend{display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--ink-3); margin-top:10px}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">DeepSeek-V4.1-Flash-1017 · 5 × CMP 170HX (64 GB, PCIe Gen2 x4)</p>
+    <h1>部署方案对比</h1>
+    <p class="lede">
+      同一台机器、同一份冻结用例 <code>cases_v1</code>、同一套口径下的三个可部署方案。
+      数字都是服务端实测，未测的写「未测」，不做估算。
+    </p>
+    <div class="chips" id="chips"></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="panel">
+    <h2>总表</h2>
+    <p class="sub">绿色 ▲ 是该行最优。「未测」= 当时的输出标准还没包含这项指标，不是测了不好看。</p>
+    <div class="scroll"><table id="matrix"></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>单流 decode 四档</h2>
+    <p class="sub">tok/s，越高越好。四档是 code / json / 中文技术 / 数学推导，刻意覆盖不同投机接受率。</p>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="panel">
+    <h2>引擎与可复现性</h2>
+    <p class="sub">三个方案用的是两代引擎。这一行最容易被忽略，但它决定了 90% 的性能差距。</p>
+    <div class="warn">
+      <b>引擎怎么重建？上游地址 + 我们的补丁，就这两样。</b>
+      全部信息在 <code>engine/</code>，一共 <b>260 KB</b>，不用存镜像。
+      <br><br>
+      <b>别人写的</b>，我们原样复制，地址点开就能下：<code>0001</code> · <code>0002</code> ·
+      <code>Containerfile</code> 来自 aiultrayang <code>@29b03af5</code>；<code>x99-stable.patch</code>
+      来自 LocalFrameLab —— A/B 那 74 行就是它，<b>一字未改</b>。
+      <br>
+      <b>我们改的</b>，上游从来没发布过，所以没有第三方 URL，这是正常的：
+      <code>0003</code> · <code>0004</code> · <code>0005</code> 三个补丁、方案 C 的 <code>local/</code> 镜像，
+      再加一份按镜像层反推的 V2 <code>Containerfile</code>。
+      它们的身份 = 上游 <code>d63af5a</code> 的地址 + 仓库里这份 patch，<b>不是丢件</b>。
+      <br><br>
+      <b>47.6 GB 里只有 191 MB 不可再生</b>（那 5 个编译产物 <code>.so</code>），
+      其余全是「记得住地址就能重新下载」的公开资源。
+      正常还原走 <code>engine/&lt;引擎&gt;/build.sh</code>（40~90 分钟，需外网）；
+      想沿用历史基准，再把那 191 MB 覆盖回去；完全没有外网才用整包（20~25 GB，永不进 git）。
+      <br><br>
+      逐项地址与 sha256 见 <code>engine/LINKS.md</code>，一条命令复验
+      <code>./tools/verify-sources.sh</code>；重建步骤见 <code>engine/README.md</code> ·
+      <code>engine/REBUILD.md</code>。
+    </div>
+    <div class="scroll"><table id="engines"></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>参数</h2>
+    <p class="sub">可以直接对着改。完整启动命令在各方案目录的 run.sh。</p>
+    <div class="scroll"><table id="params"></table></div>
+  </section>
+
+  <section class="panel">
+    <h2>怎么部署</h2>
+    <p class="sub">目标机器只需要 Docker + nvidia-container-toolkit + 模型权重。</p>
+    <pre><code>git clone &lt;this-repo&gt; dsv41-deploy &amp;&amp; cd dsv41-deploy
+
+./deploy.sh pp5-fast                  # 方案 A：5 卡生产
+./deploy.sh pp4-t16                   # 方案 B：4 卡，GPU4 留给 ComfyUI
+./deploy.sh pp5-legacy --engram ram   # 方案 C：V1 旧引擎，engram 放内存
+
+./deploy.sh pp5-fast --dry-run        # 只看要执行的 docker 命令
+./deploy.sh pp5-fast --stop           # 停掉</code></pre>
+    <p class="hint">
+      模型路径默认 <code>/run/media/xpz/models/DeepSeek-V4.1-Flash-1017-official</code>，
+      用 <code>--model</code> 或 <code>DSV41_MODEL</code> 覆盖。首次启动 4~9 分钟，脚本会自己等 <code>/health</code>。
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>口径（这三个方案的数字才能这样并排比）</b></p>
+    <ol>
+      <li>单流 tok/s = 服务端 <code>completion_tokens ÷ (总时长 − TTFT)</code>；四档均值是四个 real 用例的算术平均。</li>
+      <li>同一配置三轮之间的极差通常 5~7%，所以差值 &lt;5% 一律记「噪声内」，不写「提升」。</li>
+      <li>跨方案比较必须同一批 nonce；不同批 nonce 的绝对值不能直接相减。</li>
+      <li>冷启动首轮丢弃；不许用高熵用例单独下结论。</li>
+      <li>代价必须写：GPU4 是否被占、主机内存吃了多少、启动多久。</li>
+    </ol>
+    <p style="margin-top:14px">
+      原始数据：<code>bench/results.jsonl</code>（单流）· <code>bench/capacity.jsonl</code>（并发/容量/prefill）。
+      页面由 <code>tools/build_index.py</code> 从各方案 <code>meta.json</code> 生成，别手改这个 HTML。
+    </p>
+    <p style="margin-top:8px">最后生成：<span id="built"></span></p>
+  </div>
+</footer>
+
+<script>const DATA = {"schemes":[{"id":"pp5-fast","order":1,"name":"PP5 · fast","short":"5 卡 · dspark k=5","status":"production","status_text":"生产基线","headline":"单流 82.5 tok/s，4 路聚合 135.6，5 卡全占","folder":"schemes/pp5-fast","deploy_cmd":"./deploy.sh pp5-fast","engine":{"family":"新引擎 V2","image":"18gogogo/170hx4-256r-dsv41-1017-flash:sm80","image_id":"sha256:4e08e1c9231ea62355e58a29702970c2c993dc7f2b6993b191efea1ddf100157","size_gb":47.6,"version":"vLLM 0.1.dev21380 · V2 Model Runner","spec":"dspark k=5 + 自适应验证","patched":true,"patched_note":"镜像自带 3 文件 / 74 行改动（= LocalFrameLab 的 x99-stable.patch），非我方改动；缺了它 DSV41_HOST_STAGING_CACHE 等参数会被静默忽略","source":"https://github.com/buliaoyin/vllm-backport @ c3d3104de0（第三方 fork）","patch_author":"LocalFrameLab（https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99，Apache-2.0，我们逐行未改）","patch_note":"0001-host-staging-and-cache-interval.patch（8.3 KB）= 上游 x99-stable.patch","pullable":"unverified","restore":["rebuild","load"],"detail":"engine/v2-dspark/SOURCE.md"},"hardware":{"gpus":5,"gpu_ids":"0-4","gpu4_free":false,"host_mem_gib":190,"startup":"8:57","startup_s":537},"params":{"pipeline_layers":"[5,5,5,4,21]","cpu_threads":"[28,4]","spec_k":"5","kv_tokens":"131072","batched_tokens":"4096","max_model_len":"131072","engram":"SSD · 4 GiB 缓存"},"decode":{"code_python":100.1,"json_struct":85.4,"zh_tech":65.2,"math_steps":79.1,"mean":82.5,"itl_ms":42.7,"worst":null,"note":"cases_v1 三轮 nonce 51/52/53 均值"},"concurrency":{"conc":4,"per_stream":33.9,"aggregate":135.6,"itl_ms":29.6,"ttft_max_s":1.42,"note":"稳态聚合；墙钟 116.6，差的是 TTFT 排队"},"ttft":{"short":"0.43~1.32","cold_22k":9.4,"repeat_22k":5.0,"prefill_tok_s":4683,"fixed_s":2.1},"capacity":{"max_model_len":131072,"kv_pool":"131,072 聚合 token","per_stream":"32,768","overflow":"4×37k → 聚合 1.7 tok/s"},"cost":{"coverage_pct":93.96,"cpu_route_pct":0.27,"cards":"5/5","note":"GPU4 被占满，无法同时跑 ComfyUI"},"verdict":"✅ 生产基线","good_at":"单流长文、批量后台任务、≤4 路并发","bad_at":"要 GPU4 跑 ComfyUI 时；>4 路并发（max_num_seqs 卡死）","rollback":"./deploy.sh pp5-fast --stop","detail":"schemes/pp5-fast/README.md","_source":"schemes\\pp5-fast\\meta.json"},{"id":"pp4-t16","order":2,"name":"PP4 · t16","short":"4 卡 · GPU4 留给 ComfyUI","status":"backup","status_text":"有条件可用","headline":"单流 60.9 tok/s，用 26% 的速度换出一整张 64 GB 卡","folder":"schemes/pp4-t16","deploy_cmd":"./deploy.sh pp4-t16","engine":{"family":"新引擎 V2","image":"18gogogo/170hx4-256r-dsv41-1017-flash:sm80","image_id":"sha256:4e08e1c9231ea62355e58a29702970c2c993dc7f2b6993b191efea1ddf100157","size_gb":47.6,"version":"vLLM 0.1.dev21380 · V2 Model Runner","spec":"dspark k=5 + 自适应验证","patched":true,"patched_note":"与方案 A 同镜像；分区与线程数不同，引擎一字未动","source":"https://github.com/buliaoyin/vllm-backport @ c3d3104de0（第三方 fork）","patch_author":"同 A：LocalFrameLab（https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99，Apache-2.0，未改）","patch_note":"0001-host-staging-and-cache-interval.patch（8.3 KB）= 上游 x99-stable.patch","pullable":"unverified","restore":["rebuild","load"],"detail":"engine/v2-dspark/SOURCE.md"},"hardware":{"gpus":4,"gpu_ids":"0-3","gpu4_free":true,"host_mem_gib":150,"startup":null,"startup_s":null},"params":{"pipeline_layers":"[6,6,7,21]","cpu_threads":"[28,16]","spec_k":"5","kv_tokens":"131072","batched_tokens":"4096","max_model_len":"131072","engram":"SSD · 4 GiB 缓存"},"decode":{"code_python":74.6,"json_struct":64.4,"zh_tech":47.7,"math_steps":56.8,"mean":60.9,"itl_ms":57.9,"worst":"zh_tech 47.7","note":"cases_v1 三轮 nonce 101/102/103 均值"},"concurrency":null,"ttft":{"short":null,"cold_22k":13.71,"repeat_22k":null,"prefill_tok_s":null,"fixed_s":null},"capacity":null,"cost":{"coverage_pct":56.25,"cpu_route_pct":6.8,"cards":"4/5","note":"专家驻留率 93.96%→56.25%，CPU 路由涨 25 倍"},"verdict":"⚠️ 有条件可用","good_at":"需要 GPU4 同时跑 ComfyUI / 训练小模型时","bad_at":"长文 prefill（22k TTFT 比方案 A 慢 46%）· 高并发","rollback":"./deploy.sh pp4-t16 --stop","detail":"schemes/pp4-t16/README.md","_source":"schemes\\pp4-t16\\meta.json"},{"id":"pp5-legacy","order":3,"name":"PP5 · legacy","short":"5 卡 · V1 旧引擎","status":"legacy","status_text":"上一代生产","headline":"单流 43.5 tok/s，但启动只要 4:30，ITL 23 ms 比新引擎还低","folder":"schemes/pp5-legacy","deploy_cmd":"./deploy.sh pp5-legacy","engine":{"family":"旧引擎 V1","image":"local/deepseek-v41-official-pp5:aiultrayang-async-ssd-pp5-lazy-20261102","image_id":"sha256:4f7370a2a284f3def000accec49ed92be7d082e7e9a5e79c1f12e82b03b097b1","size_gb":29.7,"version":"V1 Model Runner + 惰性接收","spec":"无投机解码（每步 1 token）","patched":true,"patched_note":"本机两阶段构建：打 0001+0002+0005 三个补丁，再编译 libdsv41_cuda.so；镜像名带 local/ 前缀，从未推送","source":"https://github.com/344303947/dsv41-flash-pp5-170hx @ d63af5a472（第三方 fork）","patch_author":"aiultrayang（https://github.com/aiultrayang/deepseek-v41-flash-cmp170hx）的 0001 预热 / 0002 engram-SSD + 本仓库的 0005 惰性接收（+37/−9）","patch_note":"重建只用 3 个：0001 + 0002 + 0005。0003 是没进镜像的旧实验、0004 是含 0003 的旧快照，这两个都用不到","pullable":"no-registry","restore":["rebuild","load"],"detail":"engine/v1-legacy/SOURCE.md"},"hardware":{"gpus":5,"gpu_ids":"0-4","gpu4_free":false,"host_mem_gib":189,"startup":"4:30","startup_s":270,"startup_note":"engram=ram 时约 11:00（189 GiB pinned 分配）"},"params":{"pipeline_layers":"[8,8,8,8,8] 默认均分","cpu_threads":"无（专家 100% 在卡）","spec_k":"无","kv_tokens":"未测","batched_tokens":"2048","max_model_len":"262144","engram":"SSD 8 GiB / RAM 189 GiB 可选"},"decode":{"code_python":43.46,"json_struct":43.56,"zh_tech":43.42,"math_steps":43.45,"mean":43.5,"itl_ms":23.1,"worst":null,"note":"engram=ram 实测；legacy(SSD) 同引擎，客户端口径 41.8"},"concurrency":{"conc":3,"per_stream":21.65,"aggregate":43.92,"itl_ms":46.3,"ttft_max_s":null,"note":"3 路聚合 = 单流，完全不扩展；4 路未测"},"ttft":{"short":"0.33~0.47","cold_22k":6.45,"repeat_22k":null,"prefill_tok_s":null,"fixed_s":null},"capacity":{"max_model_len":262144,"kv_pool":"未测","per_stream":"未测","overflow":"未测"},"cost":{"coverage_pct":100,"cpu_route_pct":0,"cards":"5/5","note":"专家全在卡，无 cache miss；engram=ram 吃 189 GiB 内存"},"verdict":"🕘 已被方案 A 取代","good_at":"启动最快 · 22k TTFT 6.45 s（ram 模式）· 速度与内容无关永不抖","bad_at":"并发零扩展 · 单流只有 A 的一半 · 镜像不在 registry","rollback":"./deploy.sh pp5-legacy --stop","detail":"schemes/pp5-legacy/README.md","_source":"schemes\\pp5-legacy\\meta.json"}],"built":"2026-11-15 00:36"};</script>
+<script>
+(function(){
+  const S = DATA.schemes;
+  const order = ['p1','p2','p3'];
+  const cls = i => order[i] || 'p1';
+
+  const fmt = (v, d) => (v === null || v === undefined) ? '未测' : (d === undefined ? v : Number(v).toFixed(d));
+  const cell = (v, d, suffix) => (v === null || v === undefined)
+      ? '<td class="na">未测</td>'
+      : '<td>' + (d === undefined ? v : Number(v).toFixed(d)) + (suffix || '') + '</td>';
+
+  // ---------- 顶部 chips ----------
+  const best = S.reduce((a,s)=> Math.max(a, s.decode.mean ?? 0), 0);
+  document.getElementById('chips').innerHTML = [
+    '机器：5 × CMP 170HX · 28 物理核 · 247 GiB',
+    '模型：1017 原版（未量化、未改权重）',
+    '可部署方案：<b>' + S.length + '</b>',
+    '最快单流：<b>' + best.toFixed(1) + ' tok/s</b>',
+    '用例：cases_v1 · sha ee98f898'
+  ].map(t => '<span class="chip">' + t + '</span>').join('');
+
+  // ---------- 卡片 ----------
+  document.getElementById('cards').innerHTML = S.map((s,i) => `
+    <article class="card ${cls(i)}">
+      <div class="top">
+        <h3>${s.name}</h3>
+        <span class="pill ${s.status}">${s.status_text}</span>
+      </div>
+      <div class="big"><b>${fmt(s.decode.mean,1)}</b><span>tok/s · 四档均值</span></div>
+      <p class="hl">${s.headline}</p>
+      <dl class="kv">
+        <dt>引擎</dt><dd>${s.engine.family}${s.engine.spec && s.engine.spec !== '无' ? ' · ' + s.engine.spec : ''}</dd>
+        <dt>卡</dt><dd>${s.hardware.gpus} 张${s.hardware.gpu4_free ? '（GPU4 空出）' : ''}</dd>
+        <dt>4 路并发</dt><dd>${s.concurrency ? fmt(s.concurrency.aggregate,1) + ' tok/s 聚合' : '未测'}</dd>
+        <dt>22k TTFT</dt><dd>${s.ttft.cold_22k == null ? '未测' : fmt(s.ttft.cold_22k,2) + ' s'}</dd>
+        <dt>启动</dt><dd>${s.hardware.startup || '未测'}</dd>
+      </dl>
+      <div class="eng">${s.engine.image}</div>
+      <div class="cmd"><code>${s.deploy_cmd}</code><button data-cmd="${s.deploy_cmd}">复制</button></div>
+    </article>`).join('');
+
+  document.getElementById('cards').addEventListener('click', e => {
+    const b = e.target.closest('button[data-cmd]');
+    if(!b) return;
+    navigator.clipboard && navigator.clipboard.writeText(b.dataset.cmd).then(()=>{
+      const t = b.textContent; b.textContent = '已复制'; setTimeout(()=>b.textContent = t, 1200);
+    });
+  });
+
+  // ---------- 总表 ----------
+  const ROWS = [
+    {label:'引擎', get:s=>s.engine.family, raw:true},
+    {label:'投机解码', get:s=>s.engine.spec, raw:true},
+    {label:'卡数', get:s=>s.hardware.gpus + ' / 5', raw:true},
+    {label:'四档均值 tok/s', get:s=>s.decode.mean, d:1, best:'max'},
+    {label:'　code_python', get:s=>s.decode.code_python, d:1, best:'max'},
+    {label:'　json_struct', get:s=>s.decode.json_struct, d:1, best:'max'},
+    {label:'　zh_tech（常为最差档）', get:s=>s.decode.zh_tech, d:1, best:'max'},
+    {label:'　math_steps', get:s=>s.decode.math_steps, d:1, best:'max'},
+    {label:'ITL ms', get:s=>s.decode.itl_ms, d:1, best:'min'},
+    {label:'4 路并发聚合 tok/s', get:s=>s.concurrency ? s.concurrency.aggregate : null, d:1, best:'max'},
+    {label:'22k 冷 TTFT s', get:s=>s.ttft.cold_22k, d:2, best:'min'},
+    {label:'prefill 斜率 tok/s', get:s=>s.ttft.prefill_tok_s, d:0, best:'max'},
+    {label:'专家覆盖率 %（跨代不可比）', get:s=>s.cost.coverage_pct, d:2},
+    {label:'主机内存 GiB', get:s=>s.hardware.host_mem_gib, d:0, best:'min'},
+    {label:'启动时长', get:s=>s.hardware.startup, raw:true},
+    {label:'判定', get:s=>s.verdict, raw:true, cls:'verdict'}
+  ];
+
+  let html = '<thead><tr><th>指标</th>' + S.map(s=>'<th>'+s.name+'</th>').join('') + '</tr></thead><tbody>';
+  ROWS.forEach(r => {
+    const vals = S.map(s => r.get(s));
+    let bestIdx = -1;
+    if (r.best) {
+      const nums = vals.map(v => (v==null ? null : Number(v)));
+      const cand = nums.filter(v => v!=null);
+      if (cand.length > 1) {
+        const target = r.best === 'max' ? Math.max(...cand) : Math.min(...cand);
+        if (nums.filter(v => v === target).length === 1) bestIdx = nums.indexOf(target);
+      }
+    }
+    html += '<tr><td>' + r.label + '</td>' + vals.map((v,i) => {
+      if (r.raw) return `<td class="${r.cls||''} ${v==null?'na':''}">${v==null?'未测':v}</td>`;
+      if (v == null) return '<td class="na">未测</td>';
+      return `<td class="${i===bestIdx?'best':''}">${Number(v).toFixed(r.d)}</td>`;
+    }).join('') + '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('matrix').innerHTML = html;
+
+  // ---------- 柱状 ----------
+  const CASES = [
+    ['code_python','code'], ['json_struct','json'],
+    ['zh_tech','zh_tech'], ['math_steps','math']
+  ];
+  document.getElementById('bars').innerHTML = CASES.map(([key,label]) => {
+    const vals = S.map(s => s.decode[key]);
+    const max = Math.max(...vals.filter(v=>v!=null), 1);
+    return `<div class="bargroup">
+      <div class="name">${label}</div>
+      <div class="rows">${S.map((s,i)=>{
+        const v = s.decode[key];
+        const na = v==null;
+        return `<div class="bar ${na?'na':''}">
+          <span class="who">${s.name.replace(' ','')}</span>
+          <span class="track"><span class="fill" style="width:${na?100:(v/max*100).toFixed(1)}%;--c:var(--${['blue','amber','slate'][i]})"></span></span>
+          <span class="val">${na?'未测':v.toFixed(1)}</span>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+
+  // ---------- 引擎表 ----------
+  const PULL = {unverified:'⚠ 未验证（需在能上网的机器上试）', 'no-registry':'❌ 不可能（local/ 前缀，从未推送）', yes:'✅ 可直接 pull'};
+  // 把 github.com/x/y 这类裸地址变成可点链接（meta.json 里存的是纯文本）
+  const LINK_RE = /(https?:\/\/[^\s）)，,]+|(?:github\.com|modelscope\.cn|hub\.docker\.com|huggingface\.co)\/[^\s）)，,]+)/g;
+  const linkify = t => String(t).replace(LINK_RE, m => {
+    const href = /^https?:/.test(m) ? m : 'https://' + m;
+    return '<a href="' + href + '" target="_blank" rel="noopener">' + m + '</a>';
+  });
+  const RESTORE = ['rebuild','load'];
+  let eh = '<thead><tr><th>项</th>' + S.map(s=>'<th>'+s.name+'</th>').join('') + '</tr></thead><tbody>';
+  [['家族', s=>s.engine.family],
+   ['镜像', s=>s.engine.image],
+   ['镜像 ID（校验用）', s=>s.engine.image_id],
+   ['体积', s=>s.engine.size_gb ? s.engine.size_gb + ' GB' : null],
+   ['运行时', s=>s.engine.version],
+   ['投机解码', s=>s.engine.spec],
+   ['代码来源', s=>s.engine.source],
+   ['补丁作者', s=>s.engine.patch_author],
+   ['所用补丁', s=>s.engine.patch_note],
+   ['是否改过源码', s=>s.engine.patched ? '是' : '否'],
+   ['能否直接 pull', s=>PULL[s.engine.pullable] || s.engine.pullable],
+   ['还原方式', s=>(s.engine.restore||RESTORE).map(r=>r==='rebuild'?'源码 rebuild（主）':'离线包 load（无外网应急）').join(' / ')],
+   ['说明', s=>s.engine.patched_note],
+   ['出处（地址 + sha256）', ()=>'<a href="engine/LINKS.md">engine/LINKS.md</a>'],
+   ['详情', s=>'<a href="'+s.engine.detail+'">'+s.engine.detail+'</a>']].forEach(([k,f])=>{
+    eh += '<tr><td>'+k+'</td>' + S.map(s=>{
+      const v = f(s);
+      return '<td style="text-align:left;font-family:var(--mono);font-size:12px;white-space:normal">'+ (v==null?'未测':linkify(v)) +'</td>';
+    }).join('') + '</tr>';
+  });
+  document.getElementById('engines').innerHTML = eh + '</tbody>';
+
+  // ---------- 参数表 ----------
+  let ph = '<thead><tr><th>参数</th>' + S.map(s=>'<th>'+s.name+'</th>').join('') + '</tr></thead><tbody>';
+  [['pipeline_layers', s=>s.params.pipeline_layers],
+   ['cpu_threads', s=>s.params.cpu_threads],
+   ['dspark k', s=>s.params.spec_k],
+   ['kv_tokens', s=>s.params.kv_tokens],
+   ['max_num_batched_tokens', s=>s.params.batched_tokens],
+   ['max_model_len', s=>s.params.max_model_len],
+   ['engram', s=>s.params.engram],
+   ['KV 池（聚合）', s=>s.capacity ? s.capacity.kv_pool : null],
+   ['4 路每路上下文', s=>s.capacity ? s.capacity.per_stream : null],
+   ['越界后果', s=>s.capacity ? s.capacity.overflow : null],
+   ['适合', s=>s.good_at],
+   ['不适合', s=>s.bad_at]].forEach(([k,f])=>{
+    ph += '<tr><td>'+k+'</td>' + S.map(s=>{
+      const v = f(s);
+      return '<td style="text-align:left;white-space:normal;font-size:12.5px">'+ (v==null?'未测':v) +'</td>';
+    }).join('') + '</tr>';
+  });
+  document.getElementById('params').innerHTML = ph + '</tbody>';
+
+  document.getElementById('built').textContent = DATA.built;
+})();
+</script>
+</body>
+</html>

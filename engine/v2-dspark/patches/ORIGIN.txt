@@ -1,0 +1,29 @@
+新引擎 V2 补丁 · 出处
+=====================
+
+完整清单与校验方式见 ../../LINKS.md；一条命令复验全部：../../tools/verify-sources.sh
+
+上游仓库   https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99
+许可       Apache-2.0（全文见本目录 LICENSE）
+
+文件                                出处
+----------------------------------  ------------------------------------------------
+0001-host-staging-and-cache-        {上游}/patches/x99-stable.patch
+  interval.patch                    sha256 7448fefe8ccc05da5ae4ce53bbf59866a954946c243bc04b38ac249da0e9e8d6
+                                    这份是镜像里 `git diff` 导出的，与上游**逐行相同**：
+                                    只有 3 处 index 行 hash 缩写（9 vs 12 位）和 5 处行尾空格不同，代码一字不差。
+                                    证据与复核命令见 ../PROVENANCE.md
+
+upstream-x99-stable.patch           {上游}/patches/x99-stable.patch（上游原件，原样存档）
+                                    sha256 16f2a4606dae0fc307608aeec0424cb36b0017d53f757b747297a6c77636c937
+                                    2026-11-14 实测 HTTP 200。不参与构建，只用于证明 0001 的归属。
+
+源码仓库（同一个上游，补丁就是相对这个 commit 打的）：
+  https://github.com/buliaoyin/vllm-backport
+  commit c3d3104de0163c389d26d9fcba0180f55ad7964d
+  分支   codex/deepseek-v41-cpu-hybrid 与 sm80-optimize 指向同一处
+         注意：两个分支在 2026-11-14 都已前进到 12d7c186，**必须按 commit 取**，跟分支会拿到另一个引擎。
+
+镜像（补丁已经烤进去了，所以镜像才是「最终真相」）：
+  18gogogo/170hx4-256r-dsv41-1017-flash:sm80
+  image ID sha256:4e08e1c9231ea62355e58a29702970c2c993dc7f2b6993b191efea1ddf100157

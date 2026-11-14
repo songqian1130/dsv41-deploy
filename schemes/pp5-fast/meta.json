@@ -1,0 +1,89 @@
+{
+  "id": "pp5-fast",
+  "order": 1,
+  "name": "PP5 · fast",
+  "short": "5 卡 · dspark k=5",
+  "status": "production",
+  "status_text": "生产基线",
+  "headline": "单流 82.5 tok/s，4 路聚合 135.6，5 卡全占",
+  "folder": "schemes/pp5-fast",
+  "deploy_cmd": "./deploy.sh pp5-fast",
+  "engine": {
+    "family": "新引擎 V2",
+    "image": "18gogogo/170hx4-256r-dsv41-1017-flash:sm80",
+    "image_id": "sha256:4e08e1c9231ea62355e58a29702970c2c993dc7f2b6993b191efea1ddf100157",
+    "size_gb": 47.6,
+    "version": "vLLM 0.1.dev21380 · V2 Model Runner",
+    "spec": "dspark k=5 + 自适应验证",
+    "patched": true,
+    "patched_note": "镜像自带 3 文件 / 74 行改动（= LocalFrameLab 的 x99-stable.patch），非我方改动；缺了它 DSV41_HOST_STAGING_CACHE 等参数会被静默忽略",
+    "source": "https://github.com/buliaoyin/vllm-backport @ c3d3104de0（第三方 fork）",
+    "patch_author": "LocalFrameLab（https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99，Apache-2.0，我们逐行未改）",
+    "patch_note": "0001-host-staging-and-cache-interval.patch（8.3 KB）= 上游 x99-stable.patch",
+    "pullable": "unverified",
+    "restore": [
+      "rebuild",
+      "load"
+    ],
+    "detail": "engine/v2-dspark/SOURCE.md"
+  },
+  "hardware": {
+    "gpus": 5,
+    "gpu_ids": "0-4",
+    "gpu4_free": false,
+    "host_mem_gib": 190,
+    "startup": "8:57",
+    "startup_s": 537
+  },
+  "params": {
+    "pipeline_layers": "[5,5,5,4,21]",
+    "cpu_threads": "[28,4]",
+    "spec_k": "5",
+    "kv_tokens": "131072",
+    "batched_tokens": "4096",
+    "max_model_len": "131072",
+    "engram": "SSD · 4 GiB 缓存"
+  },
+  "decode": {
+    "code_python": 100.1,
+    "json_struct": 85.4,
+    "zh_tech": 65.2,
+    "math_steps": 79.1,
+    "mean": 82.5,
+    "itl_ms": 42.7,
+    "worst": null,
+    "note": "cases_v1 三轮 nonce 51/52/53 均值"
+  },
+  "concurrency": {
+    "conc": 4,
+    "per_stream": 33.9,
+    "aggregate": 135.6,
+    "itl_ms": 29.6,
+    "ttft_max_s": 1.42,
+    "note": "稳态聚合；墙钟 116.6，差的是 TTFT 排队"
+  },
+  "ttft": {
+    "short": "0.43~1.32",
+    "cold_22k": 9.4,
+    "repeat_22k": 5.0,
+    "prefill_tok_s": 4683,
+    "fixed_s": 2.1
+  },
+  "capacity": {
+    "max_model_len": 131072,
+    "kv_pool": "131,072 聚合 token",
+    "per_stream": "32,768",
+    "overflow": "4×37k → 聚合 1.7 tok/s"
+  },
+  "cost": {
+    "coverage_pct": 93.96,
+    "cpu_route_pct": 0.27,
+    "cards": "5/5",
+    "note": "GPU4 被占满，无法同时跑 ComfyUI"
+  },
+  "verdict": "✅ 生产基线",
+  "good_at": "单流长文、批量后台任务、≤4 路并发",
+  "bad_at": "要 GPU4 跑 ComfyUI 时；>4 路并发（max_num_seqs 卡死）",
+  "rollback": "./deploy.sh pp5-fast --stop",
+  "detail": "schemes/pp5-fast/README.md"
+}

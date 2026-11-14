@@ -1,0 +1,69 @@
+2026-10-20T12:49:19+08:00 | 0B | ENV PATH=/workspace/vllm-backport/.venv/bin:/root/.local/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+2026-10-20T12:49:19+08:00 | 13.5GB | RUN /bin/sh -c cd /workspace/vllm-backport     && unset VLLM_USE_PRECOMPILED VLLM_PRECOMPILED_WHEEL_LOCATION     && VIRTUAL_ENV=/workspace/vllm-backport/.venv        uv pip install -e . --torch-backend=auto # buildkit
+2026-10-20T11:51:54+08:00 | 9.6GB | RUN /bin/sh -c cd /workspace/vllm-backport     && uv venv --python 3.12 .venv     && VIRTUAL_ENV=/workspace/vllm-backport/.venv uv pip install torch==2.13.0 -q     && VIRTUAL_ENV=/workspace/vllm-backport/.venv .venv/bin/python -c "import torch; print('DIAG torch.version.cuda:', repr(torch.version.cuda), 'xpu:', repr(torch.version.xpu))" # buildkit
+2026-10-20T11:50:52+08:00 | 408MB | COPY vllm-backport /workspace/vllm-backport # buildkit
+2026-10-20T11:50:50+08:00 | 8.19kB | WORKDIR /workspace
+2026-10-20T11:50:50+08:00 | 246MB | RUN /bin/sh -c apt-get update && apt-get install -y --no-install-recommends       python3.12 python3.12-dev python3.12-venv build-essential git cmake ninja-build curl ca-certificates       && rm -rf /var/lib/apt/lists/*       && curl -LsSf https://astral.sh/uv/install.sh | sh # buildkit
+2026-10-20T11:50:50+08:00 | 0B | ENV DEBIAN_FRONTEND=noninteractive VLLM_TARGET_DEVICE=cuda TORCH_CUDA_ARCH_LIST=8.0 MAX_JOBS=8 PATH=/root/.local/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+2026-04-15T01:00:26+08:00 | 0B | ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
+2026-04-15T01:00:26+08:00 | 422kB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-mark hold ${NV_LIBCUBLAS_DEV_PACKAGE_NAME} ${NV_LIBNCCL_DEV_PACKAGE_NAME} # buildkit
+2026-04-15T01:00:26+08:00 | 20.5kB | RUN |1 TARGETARCH=amd64 /bin/sh -c NSYS_PATH=$(find /opt/nvidia/nsight-compute -type f -name "nsys" 2>/dev/null | head -n 1);     if [ -n "$NSYS_PATH" ] && [ ! -f /usr/local/bin/nsys ]; then         ln -s "$NSYS_PATH" /usr/local/bin/nsys;     fi # buildkit
+2026-04-15T01:00:26+08:00 | 4.89GB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-get update && apt-get install -y --no-install-recommends     cuda-cudart-dev-13-0=${NV_CUDA_CUDART_DEV_VERSION}     cuda-command-line-tools-13-0=${NV_CUDA_LIB_VERSION}     cuda-minimal-build-13-0=${NV_CUDA_LIB_VERSION}     cuda-libraries-dev-13-0=${NV_CUDA_LIB_VERSION}     cuda-nvml-dev-13-0=${NV_NVML_DEV_VERSION}     ${NV_LIBNPP_DEV_PACKAGE}     libcusparse-dev-13-0=${NV_LIBCUSPARSE_DEV_VERSION}     ${NV_LIBCUBLAS_DEV_PACKAGE}     ${NV_LIBNCCL_DEV_PACKAGE}     ${NV_CUDA_NSIGHT_COMPUTE_DEV_PACKAGE}     && rm -rf /var/lib/apt/lists/* # buildkit
+2026-04-15T01:00:26+08:00 | 0B | LABEL maintainer=NVIDIA CORPORATION <cudatools@nvidia.com>
+2026-04-15T01:00:26+08:00 | 0B | ARG TARGETARCH
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBNCCL_DEV_PACKAGE=libnccl-dev=2.28.3-1+cuda13.0
+2026-04-15T01:00:26+08:00 | 0B | ENV NCCL_VERSION=2.28.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBNCCL_DEV_PACKAGE_VERSION=2.28.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBNCCL_DEV_PACKAGE_NAME=libnccl-dev
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_CUDA_NSIGHT_COMPUTE_DEV_PACKAGE=cuda-nsight-compute-13-0=13.0.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=13.0.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBCUBLAS_DEV_PACKAGE=libcublas-dev-13-0=13.1.1.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBCUBLAS_DEV_PACKAGE_NAME=libcublas-dev-13-0
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBCUBLAS_DEV_VERSION=13.1.1.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBNPP_DEV_PACKAGE=libnpp-dev-13-0=13.0.1.2-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBNPP_DEV_VERSION=13.0.1.2-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_LIBCUSPARSE_DEV_VERSION=12.6.3.3-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_NVML_DEV_VERSION=13.0.87-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_CUDA_CUDART_DEV_VERSION=13.0.96-1
+2026-04-15T01:00:26+08:00 | 0B | ENV NV_CUDA_LIB_VERSION=13.0.3-1
+2026-04-15T00:50:19+08:00 | 0B | ENTRYPOINT ["/opt/nvidia/nvidia_entrypoint.sh"]
+2026-04-15T00:50:19+08:00 | 0B | ENV NVIDIA_PRODUCT_NAME=CUDA
+2026-04-15T00:50:19+08:00 | 16.4kB | COPY nvidia_entrypoint.sh /opt/nvidia/ # buildkit
+2026-04-15T00:50:19+08:00 | 45.1kB | COPY entrypoint.d/ /opt/nvidia/entrypoint.d/ # buildkit
+2026-04-15T00:50:19+08:00 | 266kB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-mark hold ${NV_LIBCUBLAS_PACKAGE_NAME} ${NV_LIBNCCL_PACKAGE_NAME} # buildkit
+2026-04-15T00:50:19+08:00 | 2.12GB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-get update && apt-get install -y --no-install-recommends     cuda-libraries-13-0=${NV_CUDA_LIB_VERSION}     ${NV_LIBNPP_PACKAGE}     cuda-nvtx-13-0=${NV_NVTX_VERSION}     libcusparse-13-0=${NV_LIBCUSPARSE_VERSION}     ${NV_LIBCUBLAS_PACKAGE}     ${NV_LIBNCCL_PACKAGE}     && rm -rf /var/lib/apt/lists/* # buildkit
+2026-04-15T00:50:19+08:00 | 0B | LABEL maintainer=NVIDIA CORPORATION <cudatools@nvidia.com>
+2026-04-15T00:50:19+08:00 | 0B | ARG TARGETARCH
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBNCCL_PACKAGE=libnccl2=2.28.3-1+cuda13.0
+2026-04-15T00:50:19+08:00 | 0B | ENV NCCL_VERSION=2.28.3-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBNCCL_PACKAGE_VERSION=2.28.3-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBNCCL_PACKAGE_NAME=libnccl2
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBCUBLAS_PACKAGE=libcublas-13-0=13.1.1.3-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBCUBLAS_VERSION=13.1.1.3-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBCUBLAS_PACKAGE_NAME=libcublas-13-0
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBCUSPARSE_VERSION=12.6.3.3-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBNPP_PACKAGE=libnpp-13-0=13.0.1.2-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_LIBNPP_VERSION=13.0.1.2-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_NVTX_VERSION=13.0.85-1
+2026-04-15T00:50:19+08:00 | 0B | ENV NV_CUDA_LIB_VERSION=13.0.3-1
+2026-04-15T00:31:25+08:00 | 0B | ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+2026-04-15T00:31:25+08:00 | 0B | ENV NVIDIA_VISIBLE_DEVICES=all
+2026-04-15T00:31:25+08:00 | 24.6kB | COPY NGC-DL-CONTAINER-LICENSE / # buildkit
+2026-04-15T00:31:25+08:00 | 0B | ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/cuda/lib64
+2026-04-15T00:31:25+08:00 | 0B | ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+2026-04-15T00:31:25+08:00 | 16.4kB | RUN |1 TARGETARCH=amd64 /bin/sh -c echo "/usr/local/cuda/lib64" >> /etc/ld.so.conf.d/nvidia.conf # buildkit
+2026-04-15T00:31:25+08:00 | 4.1kB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-get update &&     if apt-cache policy cuda-compat-orin-13-0 2>/dev/null | grep -q "Candidate:"; then         apt-get install -y --no-install-recommends cuda-compat-orin-13-0;     fi &&     rm -rf /var/lib/apt/lists/* # buildkit
+2026-04-15T00:31:18+08:00 | 322MB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-get update &&     if apt-cache policy cuda-compat-13-0 2>/dev/null | grep -q "Candidate:"; then         apt-get install -y --no-install-recommends cuda-compat-13-0;     fi &&     rm -rf /var/lib/apt/lists/* # buildkit
+2026-04-15T00:31:02+08:00 | 1.71MB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-get update && apt-get install -y --no-install-recommends     cuda-cudart-13-0=${NV_CUDA_CUDART_VERSION}     cuda-toolkit-13-0-config-common=${NV_CUDA_CUDART_VERSION}     cuda-toolkit-13-config-common=${NV_CUDA_CUDART_VERSION}     cuda-toolkit-config-common=${NV_CUDA_CUDART_VERSION}     && rm -rf /var/lib/apt/lists/* # buildkit
+2026-04-15T00:30:51+08:00 | 0B | ENV CUDA_VERSION=13.0.3
+2026-04-15T00:30:51+08:00 | 18.6MB | RUN |1 TARGETARCH=amd64 /bin/sh -c apt-get update && apt-get install -y --no-install-recommends     gnupg2 curl ca-certificates &&     curl -fsSLO https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/${NVARCH}/cuda-keyring_1.1-1_all.deb && dpkg -i cuda-keyring_1.1-1_all.deb &&     apt-get purge --autoremove -y curl     && rm -rf /var/lib/apt/lists/* # buildkit
+2026-04-15T00:30:51+08:00 | 0B | LABEL maintainer=NVIDIA CORPORATION <cudatools@nvidia.com>
+2026-04-15T00:30:51+08:00 | 0B | ARG TARGETARCH
+2026-04-15T00:30:51+08:00 | 0B | ENV NV_CUDA_CUDART_VERSION=13.0.96-1
+2026-04-15T00:30:51+08:00 | 0B | ENV NVIDIA_REQUIRE_CUDA=cuda>=13.0 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551 brand=unknown,driver>=565,driver<566 brand=grid,driver>=565,driver<566 brand=tesla,driver>=565,driver<566 brand=nvidia,driver>=565,driver<566 brand=quadro,driver>=565,driver<566 brand=quadrortx,driver>=565,driver<566 brand=nvidiartx,driver>=565,driver<566 brand=vapps,driver>=565,driver<566 brand=vpc,driver>=565,driver<566 brand=vcs,driver>=565,driver<566 brand=vws,driver>=565,driver<566 brand=cloudgaming,driver>=565,driver<566 brand=unknown,driver>=570,driver<571 brand=grid,driver>=570,driver<571 brand=tesla,driver>=570,driver<571 brand=nvidia,driver>=570,driver<571 brand=quadro,driver>=570,driver<571 brand=quadrortx,driver>=570,driver<571 brand=nvidiartx,driver>=570,driver<571 brand=vapps,driver>=570,driver<571 brand=vpc,driver>=570,driver<571 brand=vcs,driver>=570,driver<571 brand=vws,driver>=570,driver<571 brand=cloudgaming,driver>=570,driver<571 brand=unknown,driver>=575,driver<576 brand=grid,driver>=575,driver<576 brand=tesla,driver>=575,driver<576 brand=nvidia,driver>=575,driver<576 brand=quadro,driver>=575,driver<576 brand=quadrortx,driver>=575,driver<576 brand=nvidiartx,driver>=575,driver<576 brand=vapps,driver>=575,driver<576 brand=vpc,driver>=575,driver<576 brand=vcs,driver>=575,driver<576 brand=vws,driver>=575,driver<576 brand=cloudgaming,driver>=575,driver<576
+2026-04-15T00:30:51+08:00 | 0B | ENV NVARCH=x86_64
+2026-04-03T23:16:43+08:00 | 0B | /bin/sh -c #(nop)  CMD ["/bin/bash"]
+2026-04-03T23:16:42+08:00 | 87.6MB | /bin/sh -c #(nop) ADD file:0f6466425c4f1800aae9224ddc3437b90c829cea58fb8edd5dde2f1eb0ee28da in / 
+2026-04-03T23:16:40+08:00 | 0B | /bin/sh -c #(nop)  LABEL org.opencontainers.image.version=24.04
+2026-04-03T23:16:40+08:00 | 0B | /bin/sh -c #(nop)  ARG LAUNCHPAD_BUILD_ARCH
+2026-04-03T23:16:40+08:00 | 0B | /bin/sh -c #(nop)  ARG RELEASE

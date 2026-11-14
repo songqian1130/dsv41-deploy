@@ -1,0 +1,93 @@
+diff --git a/vllm/v1/worker/gpu_worker.py b/vllm/v1/worker/gpu_worker.py
+index 6c8dda7..831a4f3 100644
+--- a/vllm/v1/worker/gpu_worker.py
++++ b/vllm/v1/worker/gpu_worker.py
+@@ -144,6 +144,9 @@ if TYPE_CHECKING:
+     from vllm.v1.worker.gpu_model_runner import GPUModelRunner
+ 
+ 
++PP5_DEFERRED_RECEIVE_COUNT = 0
++
++
+ class AsyncIntermediateTensors(IntermediateTensors):
+     """IntermediateTensors with lazy comm synchronization"""
+ 
+@@ -152,8 +155,10 @@ class AsyncIntermediateTensors(IntermediateTensors):
+         tensors: dict[str, torch.Tensor],
+         comm_handles: list[Handle] | None = None,
+         comm_postprocess: list[Callable[[], None]] | None = None,
++        comm_loader: Callable[[], Any] | None = None,
+     ) -> None:
+         super().__init__(tensors)
++        self._comm_loader = comm_loader
+         self._comm_handles = comm_handles
+         self._comm_postprocess = comm_postprocess
+         self._comm_waited = False
+@@ -161,6 +166,15 @@ class AsyncIntermediateTensors(IntermediateTensors):
+     def wait_for_comm(self) -> None:
+         if self._comm_waited:
+             return
++        if self._comm_loader is not None:
++            global PP5_DEFERRED_RECEIVE_COUNT
++            tensors, handles, postprocess = self._comm_loader()
++            assert tensors is not None
++            self.tensors = tensors
++            self._comm_handles = handles
++            self._comm_postprocess = postprocess
++            self._comm_loader = None
++            PP5_DEFERRED_RECEIVE_COUNT += 1
+         if self._comm_handles:
+             for handle in self._comm_handles:
+                 handle.wait()
+@@ -223,6 +237,13 @@ class Worker(WorkerBase):
+ 
+         # Device handles of the previous step's PP intermediate-tensor send.
+         self._pp_send_work: list[Handle] = []
++        self._pp5_defer_receive = os.environ.get("VLLM_PP5_LAZY_RECEIVE", "0") == "1"
++        if self._pp5_defer_receive:
++            assert not self.use_v2_model_runner
++            assert self.parallel_config.tensor_parallel_size == 1
++            assert self.parallel_config.pipeline_parallel_size == 5
++            assert self.model_config.hf_config.model_type == "deepseek_v41"
++            assert not self.parallel_config.enable_dbo
+ 
+         # Resolved lazily on first sleep/wake; persists worker-process state.
+         self._sleep_mode_backend: SleepModeBackend | None = None
+@@ -1242,18 +1263,28 @@ class Worker(WorkerBase):
+             }
+ 
+         if forward_pass and not get_pp_group().is_first_rank:
+-            tensor_dict, comm_handles, comm_postprocess = (
+-                get_pp_group().irecv_tensor_dict(
++            def receive_intermediates():
++                return get_pp_group().irecv_tensor_dict(
+                     all_gather_group=get_tp_group(),
+                     all_gather_tensors=all_gather_tensors,
+                 )
+-            )
+-            assert tensor_dict is not None
+-            intermediate_tensors = AsyncIntermediateTensors(
+-                tensor_dict,
+-                comm_handles=comm_handles,
+-                comm_postprocess=comm_postprocess,
+-            )
++
++            if getattr(self, "_pp5_defer_receive", False) and not self.use_v2_model_runner:
++                # V1 prepares attention metadata before _preprocess consumes
++                # intermediates. Let all PP stages do this work concurrently.
++                # The original receiver, handles and postprocessing still run
++                # on this same thread/stream before tensors are accessed.
++                intermediate_tensors = AsyncIntermediateTensors(
++                    {}, comm_loader=receive_intermediates
++                )
++            else:
++                tensor_dict, comm_handles, comm_postprocess = receive_intermediates()
++                assert tensor_dict is not None
++                intermediate_tensors = AsyncIntermediateTensors(
++                    tensor_dict,
++                    comm_handles=comm_handles,
++                    comm_postprocess=comm_postprocess,
++                )
+ 
+         with self.annotate_profile(scheduler_output):
+             output = self.model_runner.execute_model(

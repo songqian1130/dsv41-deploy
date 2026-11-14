@@ -1,0 +1,18 @@
+# 本地历史证据：3600+ 文件、450 MB，对别人部署没有任何用处
+archive/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 镜像导出包（按需本地保存，别进仓库）
+*.tar.gz
+*.tar
+*.tar.zst
+*.tar.zst.sha256
+engine/bundles/
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/

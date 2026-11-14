@@ -1,0 +1,60 @@
+# 新引擎 V2（方案 A / B）—— 从公开基础镜像重建
+#
+# ⚠️ 本文件是按镜像层历史反推写出来的，**没有在干净机器上端到端验证过**。
+#    原镜像的作者没有留下 Dockerfile（见 SOURCE.md「构建层序」）。
+#    首次构建预计 40~90 分钟，主要花在编译 5 个 CUDA 扩展上。
+#
+# 构建上下文要求（由 build.sh 准备）：
+#   vllm-backport/            fork 的 c3d3104de 工作树 + 74 行补丁，**必须带 .git**
+#   requirements.freeze.txt   镜像里 197 个包的确切版本
+#   Containerfile             本文件
+#
+# 为什么必须带 .git：vllm 的版本号由 setuptools_scm 从 git 描述算出来
+# （0.1.dev21380+gc3d3104de.d20261020）。删掉 .git 会得到 0.0.0，editable 安装会失败。
+
+ARG BASE_IMAGE=nvidia/cuda:13.0.3-devel-ubuntu24.04
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      python3.12 python3.12-venv python3.12-dev \
+      git curl ca-certificates build-essential cmake ninja-build pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+ && ln -sf /root/.local/bin/uv /usr/local/bin/uv
+
+# TORCH_CUDA_ARCH_LIST=8.0 是 CMP 170HX（GA100 / sm80）的关键：不带它会编出
+# sm90 等一堆用不上的架构，构建时间翻几倍，且 170HX 上没有可用的 kernel 镜像。
+ENV VLLM_TARGET_DEVICE=cuda \
+    TORCH_CUDA_ARCH_LIST=8.0 \
+    MAX_JOBS=8 \
+    UV_LINK_MODE=copy \
+    PATH=/workspace/vllm-backport/.venv/bin:/usr/local/cuda/bin:/usr/local/bin:$PATH
+
+WORKDIR /workspace
+COPY vllm-backport /workspace/vllm-backport
+COPY requirements.freeze.txt /workspace/vllm-backport/requirements.freeze.txt
+WORKDIR /workspace/vllm-backport
+
+# torch 三件套必须从 cu130 索引取：PyPI 上的默认轮子是 cu128，
+# 装在 CUDA 13 基础镜像里会出现 libcudart 版本冲突。
+RUN uv venv --python 3.12 .venv \
+ && uv pip install --python .venv/bin/python \
+      --index-url https://download.pytorch.org/whl/cu130 \
+      torch==2.13.0 torchvision==0.28.0+cu130 torchaudio==2.11.0+cu130
+
+RUN uv pip install --python .venv/bin/python \
+      --extra-index-url https://download.pytorch.org/whl/cu130 \
+      -r requirements.freeze.txt
+
+# 编译扩展。产物：vllm/_C_stable_libtorch.abi3.so(138 MB)、_moe_C_stable_libtorch.abi3.so(48 MB)、
+# _exl3_C.abi3.so、cumem_allocator.abi3.so、fs_io_C.abi3.so
+RUN uv pip install --python .venv/bin/python -e . --no-build-isolation
+
+RUN python -c "import vllm, torch; print('vllm', vllm.__version__); print('torch', torch.__version__, 'cuda', torch.version.cuda)" \
+ && ls -la vllm/*.so
+
+ENV PATH=/workspace/vllm-backport/.venv/bin:$PATH
+WORKDIR /workspace
+CMD ["/bin/bash"]

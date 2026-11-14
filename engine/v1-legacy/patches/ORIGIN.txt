@@ -1,0 +1,47 @@
+旧引擎 V1 补丁 · 出处
+=====================
+
+完整清单与校验方式见 ../../LINKS.md；一条命令复验全部：../../tools/verify-sources.sh
+
+上游仓库   https://github.com/aiultrayang/deepseek-v41-flash-cmp170hx
+上游 commit 29b03af5eedfac9af12dfa14e8cfa7e2eafc852a
+上游目录   pp6-ssd/
+
+文件                                  出处
+------------------------------------  ------------------------------------------------
+0001-prime-pp-communicators-before-  {上游}/patches/0001-prime-pp-communicators-before-model-load.patch
+  model-load.patch                    sha256 16d8b755470052a7e939a10c97e6877396b55d06b24b548c166c7e5974dd5af7
+                                      2026-11-14 实测 HTTP 200，与本目录文件逐字节相同
+
+0002-engram-ssd-port.patch            {上游}/patches/engram-ssd-port.patch
+                                      ↑ 上游文件名没有 "0002-" 前缀，照本目录名字拼 URL 会 404
+                                      sha256 5ec439e0d300cee47fa5ba9ee99c393d71161cae95131298ada31b0a51c658c1
+                                      2026-11-14 实测 HTTP 200，与本目录文件逐字节相同
+
+0003-dspark-construction-offload     非上游件 —— 本仓库自己写的，上游从来没发布过。
+  .patch                              2026-10-31 13:21 的 r11 构造 UVA 实验（dspark 构造阶段下放）。
+                                      基座 = d63af5a（上面的上游 commit）；改动就是本文件。
+                                      原件：archive/legacy/patches/dspark-construction-offload.patch
+                                      配套：archive/legacy/image-build/pp5-dspark-r11-construction-uva.Containerfile
+                                            archive/legacy/probes/patch-dspark-construction-uva.py
+                                      可再生：从 0004 按文件名抽出 3 个 dspark 块，sha256 实测相同
+                                      （sha256 57c0ef0e380870336f8fd69e05b06fc2fdb71634942ecbae599f9e1e37f7d9ec）
+                                      它不在运行中的镜像里，重建不需要它。
+
+0004-runtime-cumulative-snapshot     非上游件 —— 本仓库的构建工作区快照（2026-11-02）。
+  .patch                              内容 = 0001 + 0002 + 0003 + 0005 的合并，只有这一份副本，不可再生。
+                                      含 0003，用它重建会得到另一个引擎 —— 不要用。
+                                      （sha256 f8c6cb49b08a8af57996d1963edf1694a1dc5ad5e7baadad3af966c7d5fe11c2）
+
+0005-pp5-lazy-receive.patch          非上游件 —— 本仓库写的（gpu_worker.py +37/-9，惰性接收）。
+                                      基座 = d63af5a + 0001 + 0002；
+                                      定义 = 镜像内 gpu_worker.py 减去 (d63af5a + 0001 + 0002)，
+                                      再生命令见 ../../LINKS.md 第 2.1 节。
+                                      （sha256 30b53a49fd6401aaaf4c7b011d2c7f670927f9dce7e602f47b571ba90601773e）
+
+注：0003 / 0004 / 0005 三个「非上游件」不是丢件。它们的身份 = 上游 commit 地址（上面那两行）
+    + 本目录里这份 patch + 再生命令。分类说明见 ../../LINKS.md 第 0 节。
+
+同目录外的 Containerfile 也来自上游（同样逐字节未改）：
+  {上游}/build/Containerfile
+  sha256 5af7be1827951c7d883dcc7636be7c2c82a44092b016f33b1468856799649689
