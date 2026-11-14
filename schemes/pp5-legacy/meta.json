@@ -40,9 +40,9 @@
     "pipeline_layers": "[8,8,8,8,8] 默认均分",
     "cpu_threads": "无（专家 100% 在卡）",
     "spec_k": "无",
-    "kv_tokens": "524288（显式指定，待上机验证）",
+    "kv_tokens": "1048576（显式指定，待上机验证；上游 9010 原始启动器默认即 1M）",
     "batched_tokens": "2048",
-    "max_model_len": "524288（2026-11-15 起，待上机验证）",
+    "max_model_len": "1048576（2026-11-15 起，待上机验证）",
     "engram": "SSD 8 GiB / RAM 189 GiB 可选"
   },
   "decode": {
@@ -71,8 +71,8 @@
     "fixed_s": null
   },
   "capacity": {
-    "max_model_len": 524288,
-    "kv_pool": "显式 524,288（2026-11-15 新加，未验证；此前自动分配、未测）",
+    "max_model_len": 1048576,
+    "kv_pool": "显式 1,048,576（2026-11-15 新加，未验证；此前自动分配、未测）",
     "slots": "4（配置值）",
     "budget": "未测",
     "per_stream": "未测",

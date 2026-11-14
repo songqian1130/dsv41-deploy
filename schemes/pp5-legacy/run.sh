@@ -92,15 +92,15 @@ CMD=(docker run -d --name "$NAME"
     --served-model-name=deepseek-v4.1-flash-1017
     --pipeline-parallel-size=5
     --tensor-parallel-size=1
-    # 2026-11-15: 262144 -> 524288；并显式加 kv-cache-tokens（旧引擎支持，aiultrayang run.log 同款）。
+    # 2026-11-15: 262144 -> 1048576；并显式加 kv-cache-tokens（旧引擎支持，aiultrayang run.log 同款）。
     # ⚠️ 未上机验证：C 全部专家在卡、util 0.97，KV 多吃 ~1.8 GiB 是否放得下要看重启日志；
     #    起不来就把 kv-cache-tokens 删掉（回到自动分配）或退 262144。
-    --max-model-len=524288
+    --max-model-len=1048576
     --max-num-seqs=4
     --max-num-batched-tokens=2048
     --gpu-memory-utilization=0.97
     --kv-cache-dtype=fp8_ds_mla
-    --kv-cache-tokens=524288
+    --kv-cache-tokens=1048576
     --trust-remote-code
     --disable-custom-all-reduce
     --enable-prefix-caching

@@ -89,7 +89,7 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | 模型 | 1017 原版 ☑ |
 | 用例 | cases_v1 · sha `ee98f898` · 3 轮 · nonce **101/102/103**（与 t20 配对） |
 | 硬件 | GPU 0-3 · **GPU4 = 0 MiB** · 主机内存 ~150 GiB |
-| 启动参数 | `[6,6,7,21]` / `[28,16]` / k=5 / kv 524288（11-15 起，待验证） / batch 4096 / PP=4 |
+| 启动参数 | `[6,6,7,21]` / `[28,16]` / k=5 / kv 1048576（11-15 起，待验证） / batch 4096 / PP=4 |
 | 脚本 | `run.sh` ｜ `deploy.sh` |
 
 **B decode 单流（tok/s，三轮均值）**
@@ -127,18 +127,21 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 
 **E 容量与上下文**
 
-> **🔄 2026-11-15 变更：KV 池 131,072 → 524,288，`max_model_len` 同步（未上机验证）。**
+> **🔄 2026-11-15 变更：KV 池 131,072 → **1,048,576**，`max_model_len` 同步（未上机验证）。**
 > B 的形态（4 卡 PP4）和上游 aiultrayang 的参考配置**完全同构**，而那份参考跑的就是
 > `kv_cache_tokens=524288 / max_model_len=524288 / max_num_seqs=8`，KV 显存合计 ~1.8 GiB ——
-> 所以 512k 在 B 上成立的把握比在 A 上还大。唯一没对齐的是 `max_num_seqs`（我们 4，参考 8）。
+> 而**模型原生上限就是 1M**（`/model/config.json` `text_config.max_position_embeddings = 1048576`），
+> 上游 344303947 的 9010 原始启动器（PP5、util 0.97）默认值也正是 `MAXLEN=1048576` —— 1M 是这套引擎的**常规操作**。
+> KV 按上游 512k 实测 1.8 GiB 外推，1M 池也只有 **~3.6 GiB**，B 的显存完全装得下。
+> 唯一没对齐的是 `max_num_seqs`（我们 4，参考 8）。
 
 | 项 | 新值（待验证） |
 |---|---|
-| max_model_len | **524,288**（512k） |
-| KV 池 | **524,288 聚合 token**（`--kv-cache-tokens 524288`） |
+| max_model_len | **1,048,576**（1M，模型原生上限） |
+| KV 池 | **1,048,576 聚合 token**（`--kv-cache-tokens 1048576`，≈3.6 GiB 外推） |
 | 并发会话槽上限 | **4**（`max_num_seqs=4`）。第 5 个排队等位，不淘汰已在跑的会话 |
-| 4 路均分每路上下文 | **131,072**（524,288 ÷ 4，推算） |
-| 可保住的空闲会话数 | 8k→64 · 16k→32 · 32k→16（推算） |
+| 4 路均分每路上下文 | **262,144**（1,048,576 ÷ 4，推算） |
+| 可保住的空闲会话数 | 8k→128 · 16k→64 · 32k→32 · 64k→16（推算） |
 | 实测 | ❌ **一档都没测**。要坐实必须在 B 上跑 `python3 bench/probe_capacity.py table` |
 
 > ⚠️ 全表按启动参数推算。B 的显存比 A 松（GPU4 空出来），KV 加大不挤专家预算，
@@ -171,7 +174,7 @@ cd bench
 python3 probe_capacity.py prefill --label pp4t16 --sizes 20,80,240
 python3 probe_capacity.py conc    --label pp4t16 --conc 4 --ctx 200  --out 300
 python3 probe_capacity.py conc    --label pp4t16 --conc 4 --ctx 2000 --out 300
-python3 probe_capacity.py table   --kv-tokens 524288 --seqs 4
+python3 probe_capacity.py table   --kv-tokens 1048576 --seqs 4
 ```
 
 ---

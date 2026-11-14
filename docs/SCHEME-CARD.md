@@ -74,7 +74,7 @@ D2 真实 4 路（每路输入 ___ tok、输出 ___ tok，含 prefill 排队）
 
 **E 容量与上下文**
 
-> ⓘ 下面这份示例写于 131,072 池时代。2026-11-15 起 KV 池已提到 524,288，
+> ⓘ 下面这份示例写于 131,072 池时代。2026-11-15 起 KV 池已提到 1,048,576，
 > 数值见 `schemes/pp5-fast/README.md`；这里的旧数值按「变更前实测」理解。
 
 | 项 | 值 |
@@ -143,7 +143,7 @@ D2 真实 4 路（每路输入 ___ tok、输出 ___ tok，含 prefill 排队）
 | 模型 | 1017 原版 ☑（未改权重、未量化） |
 | 用例 | cases_v1 · sha `ee98f898` · 3 轮 · nonce 51/52/53 |
 | 硬件 | GPU 0-4 全占 · 主机内存 ~190 GiB |
-| 启动参数差异 | 基准：`[5,5,5,4,21]` / `[28,4]` / k=5 / kv 524288（11-15 起） / batch 4096 |
+| 启动参数差异 | 基准：`[5,5,5,4,21]` / `[28,4]` / k=5 / kv 1048576（11-15 起） / batch 4096 |
 | 脚本 | `run-pp5-dspthr.sh` ｜ 回滚 `run-pp5-prod.sh.bak-thr28` |
 
 **B decode 单流**
@@ -261,7 +261,7 @@ python3 probe_capacity.py conc --label <label> --conc 4 --ctx 30000 --out 16
 python3 probe_capacity.py prefill --label <label> --sizes 20,80,240
 
 # 容量速算表（不打请求）
-python3 probe_capacity.py table --kv-tokens 524288 --seqs 4
+python3 probe_capacity.py table --kv-tokens 1048576 --seqs 4
 ```
 
 - 结果写 `bench/capacity.jsonl`（并发/容量/prefill）和 `bench/results.jsonl`（单流四档），两个文件分开，避免污染冻结用例集。

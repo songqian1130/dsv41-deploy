@@ -64,13 +64,13 @@ CMD=(docker run -d --name "$NAME"
     --max-num-seqs 4
     --max-num-batched-tokens 4096
     --limit-mm-per-prompt '{"image": 16}'
-    # 2026-11-15: 131072 -> 524288。用户要求总上下文 ≥512k。
-    # 依据：上游 aiultrayang 的 PP4 参考配置就是 kv_cache_tokens=524288 / max_model_len=524288，
+    # 2026-11-15: 131072 -> 1048576。用户要求总上下文 ≥512k。
+    # 依据：上游 aiultrayang 的 PP4 参考配置就是 kv_cache_tokens=1048576 / max_model_len=1048576，
     # 且其启动日志显示 5 个 rank 的 KV 预算合计仅 ~1.8 GiB（hybrid_runtime.py "Hybrid cache budget" 行）。
     # ⚠️ 未上机验证：重启后必须看两处 —— ① 各 rank "Hybrid cache budget: KV=" 行；
     #    ② 专家覆盖率（93.96%）。若覆盖率明显下滑，先退回 262144 再试。
-    --max-model-len 524288
-    --kv-cache-tokens 524288
+    --max-model-len 1048576
+    --kv-cache-tokens 1048576
     --enable-prefix-caching
     --enable-prompt-tokens-details
     --reasoning-parser deepseek_v41

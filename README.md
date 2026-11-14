@@ -224,7 +224,7 @@ python3 bench/run_cases.py <label> <nonce> --set real
 # 4 路并发 / prefill 斜率 / 容量速算
 python3 bench/probe_capacity.py conc    --label <label> --conc 4 --ctx 200 --out 300
 python3 bench/probe_capacity.py prefill --label <label> --sizes 20,80,240
-python3 bench/probe_capacity.py table   --kv-tokens 131072 --seqs 4
+python3 bench/probe_capacity.py table   --kv-tokens 1048576 --seqs 4
 ```
 
 ---
