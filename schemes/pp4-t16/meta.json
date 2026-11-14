@@ -42,7 +42,8 @@
     "kv_tokens": "1048576（2026-11-15 起，模型原生上限，待上机验证）",
     "batched_tokens": "4096",
     "max_model_len": "1048576",
-    "engram": "SSD · 4 GiB 缓存"
+    "engram": "SSD · 4 GiB 缓存",
+    "kv_dtype": "fp8_ds_mla（DeepSeek 官方格式，2026-11-15 起，待上机验证）"
   },
   "decode": {
     "code_python": 74.6,
@@ -69,7 +70,8 @@
     "budget": "1,048,576 全池共享 → 262,144/槽（推算，未实测）",
     "per_stream": "262,144（推算）",
     "retain": "8k→128 · 16k→64 · 32k→32 · 64k→16（推算）",
-    "overflow": "未测"
+    "overflow": "未测",
+    "kv_dtype": "fp8_ds_mla：KV 显存减半（576B/token/层 vs bf16 1152B）"
   },
   "cost": {
     "coverage_pct": 56.25,

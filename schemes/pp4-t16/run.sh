@@ -71,6 +71,12 @@ CMD=(docker run -d --name "$NAME"
     #    ② 专家覆盖率（93.96%）。若覆盖率明显下滑，先退回 262144 再试。
     --max-model-len 1048576
     --kv-cache-tokens 1048576
+    # 2026-11-15: KV 用 DeepSeek 官方 fp8_ds_mla 格式（576B/token vs bf16 1152B，减半）。
+    # 动机：1M 池 bf16 太贴边——A 的 GPU4 实测占用 58.6 GiB，预算 62.76（util 0.99），
+    # 去 KV 后余量 ~4.7 GiB，bf16 最重 rank 要 4.07 GiB 只剩 0.6 GiB 缓冲；
+    # fp8 只要 ~2.03 GiB，富余 2.6 GiB。格式无 sm 架构门槛（attention.py 无 CC 检查）。
+    # ⚠️ 未上机验证：若启动报 attention 后端不支持，删掉下面这行即回 bf16。
+    --kv-cache-dtype fp8_ds_mla
     --enable-prefix-caching
     --enable-prompt-tokens-details
     --reasoning-parser deepseek_v41
