@@ -385,6 +385,7 @@
    ['KV 池（聚合）', s=>s.capacity ? s.capacity.kv_pool : null],
    ['并发会话槽', s=>s.capacity ? s.capacity.slots : null],
    ['不淘汰的上下文预算', s=>s.capacity ? s.capacity.budget : null],
+   ['可保住的空闲会话数', s=>s.capacity ? s.capacity.retain : null],
    ['4 路每路上下文', s=>s.capacity ? s.capacity.per_stream : null],
    ['越界后果', s=>s.capacity ? s.capacity.overflow : null],
    ['适合', s=>s.good_at],

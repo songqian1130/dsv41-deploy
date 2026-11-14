@@ -133,6 +133,7 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | KV 池 | **按参数应为 131,072 聚合 token**（`--kv-cache-tokens 131072` 与 A 同一行参数） |
 | 并发会话槽上限 | **4**（`max_num_seqs=4`）。第 5 个排队等位，不淘汰已在跑的会话 |
 | 4 路均分每路上下文 | **32,768**（131,072 ÷ 4，按参数**推算**） |
+| 可保住的空闲会话数 | 按参数同 A：8k→16 个 · 16k→8 · 32k→4（推算，未实测） |
 | 实测 | ❌ **一档都没测**。B 只测了单流、22k TTFT 和三档并发 pending，没跑过 `probe_capacity.py table` |
 
 > ⚠️ 这张表是**按启动参数推的，不是量出来的**。B 用 4 卡、`gpu-memory-utilization 0.99`，
