@@ -152,7 +152,7 @@ tools/engine-bundle.sh load-so /big/disk/v2-dspark-so-*.tar.zst --into <重建�
 - **其余全部原封不动**。逐项分类见上面「一共 9 个外部文件」表，逐项地址见 [`engine/LINKS.md`](engine/LINKS.md)。
 
 > 引用上游补丁的 Apache-2.0 许可副本：`engine/v2-dspark/patches/LICENSE`。
-> 本仓库自己的脚本与文档未单独声明许可。
+> 逐项版权与许可（含「上游未声明许可」的那两个补丁怎么处理）见 **[`NOTICE.md`](NOTICE.md)**。
 
 ## 目录
 
