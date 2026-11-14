@@ -159,8 +159,8 @@ curl -s http://127.0.0.1:9010/v1/chat/completions \
 
 | 项 | 值 |
 |---|---|
-| max_model_len | **262,144**（256k，是方案 A 的 2 倍） |
-| KV 池 | 未测（`--kv-cache-dtype=fp8_ds_mla`，util 0.97，旧引擎不打印 token budget） |
+| max_model_len | **524,288**（512k；2026-11-15 起，未验证。此前 262,144） |
+| KV 池 | **显式 `--kv-cache-tokens=524288`**（2026-11-15 新加，未验证；此前自动分配、大小未知） |
 | max_num_seqs / batched_tokens | 4 / **2,048** |
 | 并发会话槽上限 | **4**（配置值）。实际 3 路已经零扩展，4 路未测 |
 | 4 路均分每路上下文 | 未测 |

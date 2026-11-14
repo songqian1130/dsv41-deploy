@@ -40,9 +40,9 @@
     "pipeline_layers": "[8,8,8,8,8] 默认均分",
     "cpu_threads": "无（专家 100% 在卡）",
     "spec_k": "无",
-    "kv_tokens": "未测",
+    "kv_tokens": "524288（显式指定，待上机验证）",
     "batched_tokens": "2048",
-    "max_model_len": "262144",
+    "max_model_len": "524288（2026-11-15 起，待上机验证）",
     "engram": "SSD 8 GiB / RAM 189 GiB 可选"
   },
   "decode": {
@@ -71,13 +71,13 @@
     "fixed_s": null
   },
   "capacity": {
-    "max_model_len": 262144,
-    "kv_pool": "未测（旧引擎不打印 token budget，由 util 0.97 推导）",
-    "slots": "4（配置上限）",
+    "max_model_len": 524288,
+    "kv_pool": "显式 524,288（2026-11-15 新加，未验证；此前自动分配、未测）",
+    "slots": "4（配置值）",
     "budget": "未测",
     "per_stream": "未测",
-    "overflow": "3 路并发已零扩展（聚合 43.92 ≈ 单流 43.5）；4 路未测",
-    "retain": "未测（池大小未知）"
+    "retain": "未测（池大小未知）",
+    "overflow": "3 路并发已零扩展（聚合 43.92 ≈ 单流 43.5）；4 路未测"
   },
   "cost": {
     "coverage_pct": 100,

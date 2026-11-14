@@ -39,9 +39,9 @@
     "pipeline_layers": "[6,6,7,21]",
     "cpu_threads": "[28,16]",
     "spec_k": "5",
-    "kv_tokens": "131072",
+    "kv_tokens": "524288（2026-11-15 起，待上机验证）",
     "batched_tokens": "4096",
-    "max_model_len": "131072",
+    "max_model_len": "524288",
     "engram": "SSD · 4 GiB 缓存"
   },
   "decode": {
@@ -63,13 +63,13 @@
     "fixed_s": null
   },
   "capacity": {
-    "max_model_len": 131072,
-    "kv_pool": "131,072 聚合 token（启动参数同 A，未单独实测）",
+    "max_model_len": 524288,
+    "kv_pool": "524,288 聚合 token（参数与上游 PP4 参考一致，待上机验证）",
     "slots": "4（第 5 个排队）",
-    "budget": "131,072 全池共享 → 32,768/槽（按参数推算，未实测）",
-    "per_stream": "32,768（推算）",
-    "overflow": "未测",
-    "retain": "按参数同 A：8k→16 个 · 16k→8 · 32k→4（推算，未实测）"
+    "budget": "524,288 全池共享 → 131,072/槽（推算，未实测）",
+    "per_stream": "131,072（推算）",
+    "retain": "8k→64 · 16k→32 · 32k→16（推算）",
+    "overflow": "未测"
   },
   "cost": {
     "coverage_pct": 56.25,
