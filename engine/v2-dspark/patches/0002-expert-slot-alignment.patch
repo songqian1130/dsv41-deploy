@@ -1,3 +1,16 @@
+# 去掉 expert 槽位规划的 8 对齐（我们写的，2026-11-16）
+#
+# 实测收益很小：同一套算法模拟，旧预算下对齐版分配 3128 槽位、不对齐版 3142 槽位，
+# 只差 14 个 = 0.24 GiB。因为 expand_expert_cache 本来就按 8 一组反复填充，
+# 每个设备最多剩 7 个槽位（~130 MB）填不进去。
+#
+# 真正的显存大头是 --gpu-memory-utilization 0.92 -> 0.97（4 卡 +20.4 GiB）。
+# 这个补丁只是顺手用尽零头，不要当主要优化项。
+#
+# 前置事实（容易被误读）：plan_expert_cache 被调用时 num_layers = num_hidden_layers - 20 = 20，
+# 只规划 PP3 那 20 层（专家不在 GPU 的层）。启动日志里 "Probe ... slots=72/88" 是
+# graph capture 试水期的临时值（代码里 count // 16 * 8 主动砍半），
+# 最终值看 "Automatic GPU expert cache: ... slots="。
 diff --git a/vllm/models/deepseek_v4_1/hybrid.py b/vllm/models/deepseek_v4_1/hybrid.py
 --- a/vllm/models/deepseek_v4_1/hybrid.py
 +++ b/vllm/models/deepseek_v4_1/hybrid.py
