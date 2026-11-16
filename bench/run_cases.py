@@ -27,7 +27,7 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-BASE = "http://127.0.0.1:9010"
+BASE = os.environ.get("BENCH_BASE", "http://127.0.0.1:9010")
 ENDPOINT = BASE + "/v1/chat/completions"
 METRICS = BASE + "/metrics"
 MODEL = "deepseek-v4.1-flash-1017"
@@ -83,6 +83,45 @@ def snap():
         elif "spec_decode" in name:
             spec[name] = spec.get(name, 0.0) + val
     return got, spec
+
+
+CONFIG_KEYS = (
+    "--gpu-memory-utilization",
+    "--max-model-len",
+    "--kv-cache-tokens",
+    "--max-num-seqs",
+    "--max-num-batched-tokens",
+    "--pipeline-parallel-size",
+    "--additional-config",
+    "--speculative-config",
+)
+
+
+def config_snapshot():
+    """抓当前引擎进程的命令行，把性能数字和启动参数绑在一起存。
+
+    没有这一条，results.jsonl 就只剩裸数字：同一个 label 下 util 0.99 和 0.92
+    的结果长得一模一样，事后无法区分（2026-11-16 踩过）。
+    """
+    import glob
+
+    for path in glob.glob("/proc/[0-9]*/cmdline"):
+        try:
+            raw = open(path, "rb").read().decode("utf-8", "ignore")
+        except OSError:
+            continue
+        if "vllm.entrypoints" not in raw:
+            continue
+        args = [a for a in raw.split("\0") if a]
+        snapd = {}
+        for key in CONFIG_KEYS:
+            if key in args:
+                idx = args.index(key)
+                if idx + 1 < len(args):
+                    snapd[key[2:]] = args[idx + 1]
+        if snapd:
+            return snapd
+    return {}
 
 
 def diff(a, b):
@@ -188,6 +227,19 @@ def main():
         % (doc["version"], args.label, nonce_tag, len(ids), sha[:12]),
         flush=True,
     )
+    cfg = config_snapshot()
+    print(
+        "[config] util=%s maxlen=%s kv=%s seqs=%s batched=%s pp=%s"
+        % (
+            cfg.get("gpu-memory-utilization", "?"),
+            cfg.get("max-model-len", "?"),
+            cfg.get("kv-cache-tokens", "?"),
+            cfg.get("max-num-seqs", "?"),
+            cfg.get("max-num-batched-tokens", "?"),
+            cfg.get("pipeline-parallel-size", "?"),
+        ),
+        flush=True,
+    )
 
     rows = []
     for cid in ids:
@@ -211,6 +263,7 @@ def main():
         "label": args.label,
         "run_index": args.run_index,
         "ts": stamp,
+        "config": config_snapshot(),
         "cases": rows,
     }
     print("SUMMARY " + json.dumps(summary, ensure_ascii=False), flush=True)

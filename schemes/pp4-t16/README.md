@@ -89,7 +89,8 @@ nvidia-smi --query-gpu=index,memory.used --format=csv,noheader
 | 模型 | 1017 原版 ☑ |
 | 用例 | cases_v1 · sha `ee98f898` · 3 轮 · nonce **101/102/103**（与 t20 配对） |
 | 硬件 | GPU 0-3 · **GPU4 = 0 MiB** · 主机内存 ~150 GiB |
-| 启动参数 | `[6,6,7,21]` / `[28,16]` / k=5 / kv 1048576（11-15 起，待验证） / batch 4096 / PP=4 |
+| 启动参数 | `[6,6,7,21]` / `[28,16]` / k=5 / **`--gpu-memory-utilization 0.99`** / batch 4096 / PP=4 |
+| KV 池 | **131072**（本表 60.9 的实测条件）；512k / 1M 的取舍见下文「KV 池」节 |
 | 脚本 | `run.sh` ｜ `deploy.sh` |
 
 **B decode 单流（tok/s，三轮均值）**
