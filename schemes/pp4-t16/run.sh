@@ -65,7 +65,7 @@ CMD=(docker run -d --name "$NAME"
     --gpu-memory-utilization 0.99
     --max-num-seqs 4
     --max-num-batched-tokens 4096
-    --limit-mm-per-prompt '{"image": 16}'
+    --limit-mm-per-prompt '{"image": 128}'
     # 2026-11-15 08:58: 1048576 -> 524288（二改）。一改 1M 实测覆盖率 47.4%（3640/7680），
     # 比基线掉 15 个点：大头不是 KV（fp8 后仅 ~3.5 GiB），是 V2 workspace 随 max_model_len
     # 天花板预留（1M 时 2~4 GiB/卡，合计 ~10 GiB）。社区对照：aiultrayang PP4 同规格跑

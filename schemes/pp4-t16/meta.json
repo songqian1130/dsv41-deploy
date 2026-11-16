@@ -45,7 +45,8 @@
     "max_model_len": "1048576",
     "engram": "SSD · 4 GiB 缓存",
     "gpu_mem_util": "0.99（终稿，原值）。0.97 在 512k 与 1M 两档独立证伪（30.8 / 46.23），勿再改",
-    "expert_slots": "131k 档 4320（56.25%）/ 512k 档 4032（52.5%）/ 1M 档 3640（47.4%），util 0.99 下随 KV 增大线性减少"
+    "expert_slots": "131k 档 4320（56.25%）/ 512k 档 4032（52.5%）/ 1M 档 3640（47.4%），util 0.99 下随 KV 增大线性减少",
+    "limit_mm_per_prompt": "{'image': 128}（2026-11-16 23:53 起，原 16；用户 Claude Code 长会话贴图会超。profile 显存与该值无关，KV cache 13.99 GiB 不变）"
   },
   "decode": {
     "code_python": 74.6,
