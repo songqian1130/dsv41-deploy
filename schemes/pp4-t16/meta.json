@@ -44,8 +44,8 @@
     "batched_tokens": "4096",
     "max_model_len": "1048576",
     "engram": "SSD · 4 GiB 缓存",
-    "gpu_mem_util": "0.97（2026-11-16 起，原 0.92）",
-    "expert_slots": "每层 188（PP3 那 20 层，2026-11-16 起；原 144）。注意日志 Probe 行显示的是砍半值 88，不是最终值"
+    "gpu_mem_util": "0.99（原值；2026-11-16 曾误改为 0.92/0.97，导致槽位 4320→3320，已恢复）",
+    "expert_slots": "每层 216（PP3 那 20 层，util 0.99 + KV 131k），总 4320。Probe 行显示的是砍半值 104"
   },
   "decode": {
     "code_python": 74.6,
@@ -55,7 +55,7 @@
     "mean": 60.9,
     "itl_ms": 57.9,
     "worst": "zh_tech 47.7",
-    "note": "cases_v1 三轮 nonce 101/102/103 均值（131k 池时代）。2026-11-16 单路 400 tok 实测 15.3 s ≈86 tok/s（0.97 + 0002 补丁，与前者不同口径）"
+    "note": "cases_v1 三轮 nonce 均值（131k 池 + util 0.99）。2026-11-16 复现：端到端 54.08 / decode 60.70，与基线一致。注意 tps_decode 是引擎口径，端到端看 tps_wall"
   },
   "concurrency": null,
   "ttft": {
