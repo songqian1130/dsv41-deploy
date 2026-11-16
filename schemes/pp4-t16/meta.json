@@ -19,7 +19,7 @@
     "patched_note": "与方案 A 同镜像；分区与线程数不同。2026-11-16 起额外挂载 0002 补丁覆盖 hybrid.py（改的是我们自己）",
     "source": "https://github.com/buliaoyin/vllm-backport @ c3d3104de0（第三方 fork）",
     "patch_author": "同 A：LocalFrameLab（https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99，Apache-2.0，未改）",
-    "patch_note": "0001-host-staging-and-cache-interval.patch（上游 LocalFrameLab）+ 0002-expert-slot-alignment.patch（**我们写的**：去掉 expert 槽位的 8 对齐，用尽显存余量）",
+    "patch_note": "0001-host-staging-and-cache-interval.patch（上游 LocalFrameLab）+ 0002-expert-slot-alignment.patch（**我们写的**：去掉 expert 槽位的 8 对齐；实测仅 +0.24 GiB，主要收益在 util 0.92→0.97）",
     "pullable": "unverified",
     "restore": [
       "rebuild",
@@ -45,7 +45,7 @@
     "max_model_len": "1048576",
     "engram": "SSD · 4 GiB 缓存",
     "gpu_mem_util": "0.97（2026-11-16 起，原 0.92）",
-    "expert_slots": "每层 112~208（2026-11-16 起，原 72）；4 卡预算 65.2 GiB（原 52.5）"
+    "expert_slots": "每层 188（PP3 那 20 层，2026-11-16 起；原 144）。注意日志 Probe 行显示的是砍半值 88，不是最终值"
   },
   "decode": {
     "code_python": 74.6,
