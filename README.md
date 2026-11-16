@@ -7,15 +7,17 @@
 
 👉 **先看对比页：[`index.html`](index.html)**（本地双击即可打开，无外部依赖）
 
-| | [A · pp5-fast](schemes/pp5-fast/) | [B · pp4-t16](schemes/pp4-t16/) | [C · pp5-legacy](schemes/pp5-legacy/) |
-|---|---|---|---|
-| 引擎 | 新引擎 V2 · dspark k=5 | 新引擎 V2 · dspark k=5 | 旧引擎 V1 · 无投机 |
-| 卡 | 5 | 4（GPU4 空出） | 5 |
-| 单流 tok/s | **82.5** | 60.9 | 43.5 |
-| 4 路聚合 | **135.6** | 未测 | 43.9（3 路，不扩展） |
-| 22k TTFT | 9.40 s | 13.71 s | 6.45 s（ram） |
-| 启动 | 8:57 | ~9 min | **4:30** |
-| 判定 | ✅ 生产 | ⚠️ 有条件 | 🕘 兜底 |
+| | [A · pp5-fast](schemes/pp5-fast/) | [B · pp4-t16](schemes/pp4-t16/) | [C · pp5-legacy](schemes/pp5-legacy/) | [L · pp4-cpumoe](schemes/pp4-cpumoe/) |
+|---|---|---|---|---|
+| 引擎 | 新引擎 V2 · dspark k=5 | 新引擎 V2 · dspark k=5 | 旧引擎 V1 · 无投机 | 旧 V1 · ngram k=3 · CPU 专家 |
+| 卡 | 5 | 4（GPU4 空出） | 5 | 4（**GPU3** 空出） |
+| 单流 tok/s | **82.5** | 60.9 | 43.5 | 26.4（zh 单轮） |
+| 4 路聚合 | **135.6** | 未测 | 43.9（3 路，不扩展） | 未测（6 路 ≈31） |
+| 22k TTFT | 9.40 s | 13.71 s | 6.45 s（ram） | 未测（短请求 14.85 s） |
+| 启动 | 8:57 | ~9 min | **4:30** | 7:50 |
+| 判定 | ✅ 生产 | ⚠️ 有条件 | 🕘 兜底 | ⚠️ 兜底·**唯一不冻机** |
+
+> GPU4 为什么会冻机、怎么绕开：看 [`docs/GPU4-HANG.md`](docs/GPU4-HANG.md)。
 
 ---
 
@@ -27,6 +29,7 @@ git clone <this-repo> dsv41-deploy && cd dsv41-deploy
 ./deploy.sh pp5-fast                  # 5 卡生产，单流 82.5 tok/s
 ./deploy.sh pp4-t16                   # 4 卡，GPU4 留给 ComfyUI
 ./deploy.sh pp5-legacy --engram ram   # 旧引擎，22k TTFT 6.45 s
+./deploy.sh pp4-cpumoe                # 兜底：9 层专家跑 CPU，GPU3 留给 ComfyUI（不崩优先）
 
 ./deploy.sh pp5-fast --dry-run        # 只打印 docker 命令，不启动
 ./deploy.sh pp5-fast --stop           # 停掉
@@ -45,7 +48,7 @@ git clone <this-repo> dsv41-deploy && cd dsv41-deploy
 
 ## 引擎：**上游地址 + 我们的补丁**，就这两样（260 KB）
 
-三个方案跑的是两个第三方引擎镜像。把它们造出来的东西全在 `engine/`，**一共 260 KB**，不用存镜像。
+三个方案跑的是两个第三方引擎镜像（L 用第三个：官方 `vllm/vllm-openai` + zebgop overlay 挂载）。把它们造出来的东西全在 `engine/`，**一共 260 KB**，不用存镜像。
 
 ```
 上游地址（别人给的 URL）  +  我们的 .patch（3 个文件，在仓库里）  =  能重建出同一个引擎
@@ -162,14 +165,15 @@ dsv41-deploy/
 ├── SCHEMES.md                全部方案的参数 / 实测 / 判定，含已否方向
 ├── deploy.sh                 一键部署入口（分发到 schemes/<方案>/deploy.sh）
 ├── schemes/
-│   ├── README.md             三个方案怎么选
+│   ├── README.md             四个方案怎么选
 │   ├── pp5-fast/             方案 A：5 卡生产
 │   │   ├── README.md         方案卡：引擎 / 前置 / 部署 / 性能六段 / 排障
 │   │   ├── deploy.sh         一键部署
 │   │   ├── run.sh            只做 docker run，参数可覆盖
 │   │   └── meta.json         数据源，供 index.html 生成
 │   ├── pp4-t16/              方案 B：4 卡，GPU4 留给 ComfyUI
-│   └── pp5-legacy/           方案 C：V1 旧引擎（SSD / RAM 两种 engram）
+│   ├── pp5-legacy/           方案 C：V1 旧引擎（SSD / RAM 两种 engram）
+│   └── pp4-cpumoe/           方案 L：V1 + 9 层专家跑 CPU，GPU3 留给 ComfyUI（不崩优先）
 ├── bench/                    基准与探针
 │   ├── cases_v1.json         冻结用例集（有 sha256 校验，别改）
 │   ├── run_cases.py          单流四档 + C1/C2/C3

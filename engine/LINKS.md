@@ -55,7 +55,7 @@
 
 ---
 
-## 1. 源码仓库（4 个，全部公开可达）
+## 1. 源码仓库（5 个，全部公开可达）
 
 | 仓库 | 地址 | 钉住的版本 | 用途 | 2026-11-14 |
 |---|---|---|---|---|
@@ -63,6 +63,7 @@
 | `LocalFrameLab/deepseek-v41-cmp170hx-x99` | <https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99> | `main`（补丁文件稳定，仍建议按 sha256 校验） | A/B 的 74 行补丁原件、4 卡基准 | HTTP 200 ✅ |
 | `344303947/dsv41-flash-pp5-170hx` | <https://github.com/344303947/dsv41-flash-pp5-170hx> | commit `d63af5a472dc76b12d7a73d50a5af142844c15d1` | C 的源码基线 | HTTP 200 ✅ |
 | `aiultrayang/deepseek-v41-flash-cmp170hx` | <https://github.com/aiultrayang/deepseek-v41-flash-cmp170hx> | commit `29b03af5eedfac9af12dfa14e8cfa7e2eafc852a`，目录 `pp6-ssd/` | C 的 0001 / 0002 / Containerfile 出处 | HTTP 200 ✅ |
+| `zebgop-ops/dsv41flash-pp` | <https://github.com/zebgop-ops/dsv41flash-pp> | commit `e29e9fdc9bbc419b34301fc581c2da9f9062164a`（2026-11-07） | **L 的全部源码**：`overlay/` 37 个 `patch_*.py` + `hybrid/cpu_moe.cpp` + `engram_ssd/row_store.cpp` + 启动脚本 | HTTP 200 ✅ · **Apache-2.0** |
 
 **取法（两个都是只取那一个 commit，不要 clone 默认分支）：**
 
@@ -146,12 +147,13 @@ sha256sum 0005-pp5-lazy-receive.patch   # 期望 30b53a49fd6401aaaf4c7b011d2c7f6
 
 ---
 
-## 3. 镜像（4 个 tag）
+## 3. 镜像（5 个 tag）
 
 | tag | 地址 | 镜像 ID | 2026-11-14 |
 |---|---|---|---|
 | `18gogogo/170hx4-256r-dsv41-1017-flash:sm80` | Docker Hub：<https://hub.docker.com/r/18gogogo/170hx4-256r-dsv41-1017-flash> | `sha256:4e08e1c9231ea62355e58a29702970c2c993dc7f2b6993b191efea1ddf100157` | ⚠️ 页面 000（**本机代理未运行**，非链接失效），是否公开未验证 |
 | `local/deepseek-v41-official-pp5:aiultrayang-async-ssd-pp5-lazy-20261102` | **我们改的**（`local/` 前缀，从未推送）。身份 = 本仓库的 `engine/v1-legacy/`（配方 + 补丁）+ `Containerfile` | `sha256:4f7370a2a284f3def000accec49ed92be7d082e7e9a5e79c1f12e82b03b097b1` | 源码重建 / 离线包 |
+| `vllm/vllm-openai:deepseekv41-flash-0909`（**L 用**） | Docker Hub 官方组织镜像 tag；身份 = 官方 vLLM + `zebgop-ops` overlay 挂载（**不改镜像**） | `sha256:00d577a6a632…`（30.4 GB，vLLM `0.1.dev20904+g179dd0fa9`） | ⚠️ 未验证（本机 Docker Hub 直连不通） |
 | `lazymio/vllm-backport:v0.13.0-sm80`（C 的基础镜像） | <https://hub.docker.com/r/lazymio/vllm-backport> | digest `sha256:bfe237ee0886d9b4b2357b84bfbe09805678cc80b2182dd2a87cefb89497342d` | ⚠️ 未验证（原机上还在） |
 | `nvidia/cuda:13.0.3-devel-ubuntu24.04`（A/B 的基础镜像） | <https://hub.docker.com/r/nvidia/cuda> | tag 名是**推断**（实测环境变量 CUDA 13.0.3 / Ubuntu 24.04.4） | ⚠️ 未验证 |
 

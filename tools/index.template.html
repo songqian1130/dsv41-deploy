@@ -158,7 +158,7 @@
 
   <section class="panel">
     <h2>引擎与可复现性</h2>
-    <p class="sub">三个方案用的是两代引擎。这一行最容易被忽略，但它决定了 90% 的性能差距。</p>
+    <p class="sub">四个方案用的是三代引擎（V2 / V1-legacy / V1-cpumoe）。这一行最容易被忽略，但它决定了 90% 的性能差距。</p>
     <div class="warn">
       <b>引擎怎么重建？上游地址 + 我们的补丁，就这两样。</b>
       全部信息在 <code>engine/</code>，一共 <b>260 KB</b>，不用存镜像。
@@ -212,7 +212,7 @@
 
 <footer>
   <div class="wrap">
-    <p><b>口径（这三个方案的数字才能这样并排比）</b></p>
+    <p><b>口径（只有按同一批 nonce、同一套 cases_v1 跑出来的数字才能这样并排比）</b></p>
     <ol>
       <li>单流 tok/s = 服务端 <code>completion_tokens ÷ (总时长 − TTFT)</code>；四档均值是四个 real 用例的算术平均。</li>
       <li>同一配置三轮之间的极差通常 5~7%，所以差值 &lt;5% 一律记「噪声内」，不写「提升」。</li>
