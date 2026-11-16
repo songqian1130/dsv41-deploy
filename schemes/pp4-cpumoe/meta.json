@@ -1,0 +1,94 @@
+{
+  "id": "pp4-cpumoe",
+  "order": 4,
+  "name": "PP4 · CPU-MoE（zebgop）",
+  "short": "4 卡 · 9 层专家跑 CPU · GPU3 空出 · 不崩优先",
+  "status": "backup",
+  "status_text": "兜底（不崩优先）",
+  "headline": "原版 FP8 权重 + 9 层专家丢 CPU + engram 走 NVMe，速度只有 B 的四成，换来 GPU4 在场也不冻机",
+  "folder": "schemes/pp4-cpumoe",
+  "deploy_cmd": "./deploy.sh pp4-cpumoe",
+  "engine": {
+    "family": "旧引擎 V1",
+    "image": "vllm/vllm-openai:deepseekv41-flash-0909",
+    "image_id": "sha256:00d577a6a632",
+    "size_gb": 30.4,
+    "version": "vLLM 0.1.dev20904+g179dd0fa9 · V1 Model Runner",
+    "spec": "ngram k=3（prompt_lookup_max 8 / min 5）",
+    "patched": true,
+    "patched_note": "overlay 37 个 patch_*.py + CPU MoE kernel + engram SSD 后端，全部来自上游 overlay",
+    "source": "https://github.com/zebgop-ops/dsv41flash-pp @ e29e9fdc9bbc419b34301fc581c2da9f9062164a",
+    "patch_author": "zebgop-ops（https://github.com/zebgop-ops/dsv41flash-pp，Apache-2.0）",
+    "patch_note": "overlay/apply-overlay.sh 一键套用；CPU 专家 = hybrid/cpu_moe.cpp（AVX2），engram = engram_ssd/row_store.cpp（O_DIRECT pread）",
+    "pullable": "unverified",
+    "restore": [
+      "rebuild",
+      "load"
+    ],
+    "detail": "schemes/pp4-cpumoe/README.md"
+  },
+  "hardware": {
+    "gpus": 4,
+    "gpu_ids": "0,1,2,4",
+    "gpu4_free": false,
+    "gpu3_free": true,
+    "host_mem_gib": 110,
+    "startup": "7:50",
+    "startup_s": 470
+  },
+  "params": {
+    "pipeline_layers": "[8,12,8,12]",
+    "cpu_threads": "16（AVX2 专家线程）",
+    "spec_k": "3",
+    "kv_tokens": "131072（脚本默认）",
+    "batched_tokens": "2048",
+    "max_model_len": "131072",
+    "engram": "SSD · O_DIRECT · 189 GiB 不入内存",
+    "cpu_expert_layers": "16-19,35-39（9 层）"
+  },
+  "decode": {
+    "code_python": null,
+    "json_struct": null,
+    "zh_tech": 26.4,
+    "math_steps": null,
+    "mean": null,
+    "itl_ms": null,
+    "worst": "未测",
+    "note": "zh 单轮 200 tok 初测；四档未按 cases_v1 跑，不可与 A/B 的四档均值直接相减"
+  },
+  "concurrency": {
+    "conc": 6,
+    "per_stream": "5.0~5.5",
+    "aggregate": 31.1,
+    "note": "含 ComfyUI 并发时实测；几乎不随并发扩展，瓶颈是 16 个 CPU 线程 + NVMe"
+  },
+  "ttft": {
+    "short": 14.85,
+    "cold_22k": null,
+    "repeat_22k": null,
+    "prefill_tok_s": null,
+    "fixed_s": null
+  },
+  "capacity": {
+    "max_model_len": 131072,
+    "kv_pool": "每 rank 可用 0.96 GiB（日志实测），聚合未测",
+    "slots": "4",
+    "budget": "受 KV 0.96 GiB/rank 限制，远小于 4×32k",
+    "per_stream": "未测",
+    "retain": "未测",
+    "overflow": "未测",
+    "kv_dtype": "fp8（显式传 --kv-cache-dtype fp8）",
+    "startup": "7 分 50 秒（容器首行 → Application startup complete；权重 58.42 GiB / 252 s）"
+  },
+  "cost": {
+    "coverage_pct": 70.0,
+    "cpu_route_pct": 30.0,
+    "cards": "4/5",
+    "note": "覆盖率 70% 是理论上限（21/30 层在 GPU）；CPU 路由 ≈30%（9/30 层），均未实测"
+  },
+  "verdict": "⚠️ 有条件可用（不崩优先）",
+  "good_at": "GPU4 存在时必须上生产的兜底 · 单流问答 · 省下 190 GiB 主机内存",
+  "bad_at": "长文 prefill（短请求 TTFT 就有 14.85 s）· 高并发（6 路聚合 31 tok/s）· 512k 上下文",
+  "rollback": "./deploy.sh pp4-cpumoe --stop",
+  "detail": "schemes/pp4-cpumoe/README.md"
+}

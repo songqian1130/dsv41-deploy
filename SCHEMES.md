@@ -25,6 +25,7 @@
 | I · engram 放内存 | ⏸ 未采用 | 新 V2 · k=5 | 5 | 同 ssd | — | — | 改善 | 改善 | — | 93.96% |
 | **J · 旧 PP5 · legacy（SSD）** | 🕘 上一代生产 | 旧 V1 · 无投机 | 5 | 未测（客户端 41.8） | 未测（≈43 推定） | 未测 | **11.92 s**（旧口径） | 未测 | 4:30 | 100% 在卡 |
 | **K · 旧 PP5 · ram（pinned）** | 🕘 旧生产兜底 | 旧 V1 · 无投机 | 5 | **43.5** | 43.5 | 未测（3 路 43.9） | **6.45 s** | 未测 | 11:00 | 100% 在卡 |
+| **L · PP4 CPU-MoE（zebgop）** | ⚠️ 兜底·不崩优先 | 旧 V1 · ngram k=3 · CPU 专家 | 4（GPU3 空出） | 未测（zh 单轮 26.4） | 未测 | 未测（6 路 ≈31） | 未测（短请求 14.85 s） | 未测 | 7:50 | 70%（理论上限） |
 
 「未测」= 该指标当时还没进标准（v1.1 是 2026-11-14 22:20 才加的），不是测了不好看。
 
@@ -37,6 +38,16 @@
 | 源码 | `buliaoyin/vllm-backport` @ `c3d3104de0`（**第三方 fork**） | `344303947/dsv41-flash-pp5-170hx` @ `d63af5a472` |
 | 补丁 | 3 文件 / 74 行未提交改动（`engine/v2-dspark/patches/`） | 4 个（`engine/v1-legacy/patches/`） |
 | 能否 pull | ⚠️ 未验证（本机连不上 Docker Hub） | ❌ 从未推送 |
+
+**L 是第三个镜像**（2026-11-16 新增，不属于上表两支）：
+
+| 项 | L · PP4 CPU-MoE |
+|---|---|
+| 镜像 | `vllm/vllm-openai:deepseekv41-flash-0909`（30.4 GB） |
+| 镜像 ID | `sha256:00d577a6a632…` |
+| vLLM | `0.1.dev20904+g179dd0fa9` · **V1 Model Runner** |
+| 源码 + 补丁 | [`zebgop-ops/dsv41flash-pp`](https://github.com/zebgop-ops/dsv41flash-pp) @ `e29e9fdc9bbc419b34301fc581c2da9f9062164a`，Apache-2.0；`overlay/` 37 个 `patch_*.py` + `hybrid/cpu_moe.cpp` + `engram_ssd/row_store.cpp` |
+| 能否 pull | ⚠️ 未验证；overlay 可从 GitHub 重建（`overlay/apply-overlay.sh`） |
 
 **两个都不是「官方 vLLM + 补丁」**：`vllm/models/deepseek_v4_1/` 只在 fork 镜像里。
 来源、补丁 sha256、重建步骤与还缺什么，见 [`engine/README.md`](engine/README.md)。

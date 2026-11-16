@@ -5,6 +5,7 @@
 #   ./deploy.sh pp5-fast          # 方案 A：5 卡，82.5 tok/s（生产）
 #   ./deploy.sh pp4-t16           # 方案 B：4 卡，60.9 tok/s，GPU4 留给 ComfyUI
 #   ./deploy.sh pp5-legacy        # 方案 C：V1 旧引擎，43.5 tok/s，启动最快
+#   ./deploy.sh pp4-cpumoe        # 方案 L：V1 + 9 层专家跑 CPU，GPU3 留给 ComfyUI（不崩优先）
 #
 # 通用选项（透传给具体方案）：
 #   --dry-run        只打印 docker 命令，不启动
@@ -24,6 +25,7 @@ list_schemes() {
   pp5-fast      方案 A · 5 卡 · 单流 82.5 tok/s · 启动 8:57 · 生产基线
   pp4-t16       方案 B · 4 卡 · 单流 60.9 tok/s · GPU4 空出给 ComfyUI
   pp5-legacy    方案 C · 5 卡 · 单流 43.5 tok/s · 启动 4:30 · V1 旧引擎（可 --engram ram）
+  pp4-cpumoe    方案 L · 4 卡 · 9 层专家跑 CPU · GPU3 空出 · GPU4 在场也不冻机的兜底
 
 用法：./deploy.sh <方案名> [--dry-run|--stop] [--model PATH] [--port N] [--gpus LIST]
 对比页：index.html      参数与实测明细：SCHEMES.md

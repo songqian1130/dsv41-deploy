@@ -28,7 +28,7 @@ parse_args "$@"
 IMAGE=${DSV41_IMAGE:-18gogogo/170hx4-256r-dsv41-1017-flash:sm80}
 NAME=${DSV41_NAME:-dsv41-pp4-t16}
 MODEL=${DSV41_MODEL:-/run/media/xpz/models/DeepSeek-V4.1-Flash-1017-official}
-CACHE_BASE=${DSV41_CACHE:-$HOME/.cache/dsv41}
+CACHE_BASE=${DSV41_CACHE:-${HOME:-/root}/.cache/dsv41}
 # 服务规矩（2026-11-15 定）：所有方案统一 9010 端口、无密钥，客户端不改地址
 PORT=${DSV41_PORT:-9010}
 GPUS=${DSV41_GPUS:-0,1,2,3}
@@ -39,6 +39,7 @@ CMD=(docker run -d --name "$NAME"
   --gpus all
   --ipc=host
   --cap-add=SYS_NICE
+  --cpuset-cpus=0-23,28-51
   --network host
   -e CUDA_VISIBLE_DEVICES="$GPUS"
   -e DSV41_HOST_STAGING_CACHE=1
@@ -52,26 +53,29 @@ CMD=(docker run -d --name "$NAME"
   -e HF_HUB_OFFLINE=1
   -e VLLM_ENGINE_READY_TIMEOUT_S=36000
   -e CUDA_DEVICE_MAX_CONNECTIONS=16
+  -e CUDA_MPS_PIPE_DIRECTORY=/nonexistent-mps
+  -e CUDA_MPS_LOG_DIRECTORY=/nonexistent-mps-log
   -v "$MODEL":/model:ro
   -v "$CACHE_BASE/vllm":/tmp/dsv41-cache
   -v "$CACHE_BASE/triton":/tmp/dsv41-triton
   --restart no
+  --log-driver=journald
   "$IMAGE"
   /workspace/vllm-backport/.venv/bin/python -m vllm.entrypoints.cli.main serve /model
     --served-model-name deepseek-v4.1-flash-1017 DeepSeek-V4.1-Flash-1017
     --host 0.0.0.0 --port "$PORT"
     --pipeline-parallel-size 4 --tensor-parallel-size 1
-    --gpu-memory-utilization 0.99
+    --gpu-memory-utilization 0.92
     --max-num-seqs 4
     --max-num-batched-tokens 4096
     --limit-mm-per-prompt '{"image": 16}'
-    # 2026-11-15: 131072 -> 1048576。用户要求总上下文 ≥512k。
-    # 依据：上游 aiultrayang 的 PP4 参考配置就是 kv_cache_tokens=1048576 / max_model_len=1048576，
-    # 且其启动日志显示 5 个 rank 的 KV 预算合计仅 ~1.8 GiB（hybrid_runtime.py "Hybrid cache budget" 行）。
-    # ⚠️ 未上机验证：重启后必须看两处 —— ① 各 rank "Hybrid cache budget: KV=" 行；
-    #    ② 专家覆盖率（93.96%）。若覆盖率明显下滑，先退回 262144 再试。
-    --max-model-len 1048576
-    --kv-cache-tokens 1048576
+    # 2026-11-15 08:58: 1048576 -> 524288（二改）。一改 1M 实测覆盖率 47.4%（3640/7680），
+    # 比基线掉 15 个点：大头不是 KV（fp8 后仅 ~3.5 GiB），是 V2 workspace 随 max_model_len
+    # 天花板预留（1M 时 2~4 GiB/卡，合计 ~10 GiB）。社区对照：aiultrayang PP4 同规格跑
+    # 512k 覆盖也只剩 43.33%；LocalFrameLab 直接用 65536 保速度。512k 档预计 ~4030 槽（52.5%），
+    # 满足用户 ≥512k 要求且比上游同档高 9 个点。
+    --max-model-len 524288
+    --kv-cache-tokens 524288
     # KV 格式：不传 --kv-cache-dtype，auto 默认即 fp8_ds_mla（实测 1M 池仅 3.47 GiB）。
     #    ⚠️ 千万别显式传 fp8_ds_mla——会触发共享 KV 组跨 rank 检查直接 NotImplementedError。
     --enable-prefix-caching
@@ -81,7 +85,7 @@ CMD=(docker run -d --name "$NAME"
     --enable-auto-tool-choice
     --default-chat-template-kwargs '{"reasoning_effort":50}'
     --speculative-config '{"method":"dspark","num_speculative_tokens":5,"enable_adaptive_verification":true}'
-    --additional-config '{"deepseek_v41_hybrid":{"pipeline_layers":[6,6,7,21],"cpu_threads":[28,16],"cache_decode_interval":64,"engram_cache_gib":4,"host_cache_gib":8,"engram_storage":"ssd","route_tail_skip":0}}'
+    --additional-config '{"deepseek_v41_hybrid":{"pipeline_layers":[6,6,7,21],"cpu_threads":[24,16],"cache_decode_interval":64,"engram_cache_gib":4,"host_cache_gib":8,"engram_storage":"ssd","route_tail_skip":0}}'
 )
 
 if [ "$ACTION" = stop ]; then stop_container "$NAME"; exit 0; fi

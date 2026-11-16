@@ -101,16 +101,18 @@ preflight() {
     log error "模型目录未挂载（缺 $MODEL_DIR/config.json），放弃启动。请检查 /run/media/xpz/models 是否挂上"
     return 1
   fi
-  local i used
+  local i used gpu_scope
+  # pp4 是唯一 4 卡模式：GPU4 归 ComfyUI 常驻，不参与显存预检（2026-11-15 修）
+  if [ "$CUR_MODE" = "pp4" ]; then gpu_scope="--id=0,1,2,3"; else gpu_scope="--id=0,1,2,3,4"; fi
   for i in $(seq 1 30); do
-    used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader 2>/dev/null | awk '{print $1}' | sort -nr | head -1)
+    used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader $gpu_scope 2>/dev/null | awk '{print $1}' | sort -nr | head -1)
     if [ -z "$used" ]; then log warn "nvidia-smi 无输出，等 10s（$i/30）"; sleep 10; continue; fi
     if [ "$used" -lt 1024 ]; then break; fi
-    log warn "GPU 仍被占用（最大 ${used}MiB），等 10s（$i/30）"
+    log warn "GPU 仍被占用（$CUR_MODE 范围内最大 ${used}MiB），等 10s（$i/30）"
     sleep 10
   done
   if [ "${used:-0}" -ge 1024 ]; then
-    log error "显存未释放（最大 ${used}MiB），放弃启动"
+    log error "显存未释放（$CUR_MODE 范围内最大 ${used}MiB），放弃启动"
     return 1
   fi
   # ram/dspark 模式退出后 pinned 页需要时间归还，必须等到够用再起
