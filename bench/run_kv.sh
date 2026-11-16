@@ -16,14 +16,15 @@
 #   - label 固定为 kv<k>-u099-<gpus 压缩>，nonce 随机，配置快照自动记录
 #
 # 口径（不要改）：
-#   - util 0.99（run-pp4.sh 原值；0.92/0.97 已证伪，见 bench/README.md 3.3）
+#   - util 可指定（默认 0.99 原值）；512k/1M 档 0.97 的对照见 bench/README.md 3.1b
 #   - 端到端看 tps_wall，decode 仅参考；前 3 轮热身不计入结论
 set -uo pipefail
 
-KV=${1:?用法: run_kv.sh <kv_tokens> [gpus=1,2,3,4] [rounds=6]}
+KV=${1:?用法: run_kv.sh <kv_tokens> [gpus=1,2,3,4] [rounds=6] [util=0.99]}
 GPUS=${2:-1,2,3,4}
 ROUNDS=${3:-6}
-PREFIX="kv${KV}-u099-$(echo "$GPUS" | tr ',' '_')"
+UTIL=${4:-0.99}
+PREFIX="kv${KV}-u$(echo "$UTIL" | tr -d '.')-$(echo "$GPUS" | tr ',' '_')"
 
 ENGINE="${HOME:-/home/xpz}/dsv41-repo-test"
 URL="http://127.0.0.1:9010"
@@ -35,16 +36,12 @@ mkdir -p "$LOGDIR"
 log(){ echo "[$(date +%H:%M:%S)] $*" | tee -a "$RUNLOG"; }
 
 # ---------- preflight ----------
-log "=== run_kv: KV=$KV  gpus=$GPUS  rounds=$ROUNDS ==="
-util=$(grep -oE '\-\-gpu-memory-utilization [0-9.]+' "$ENGINE/run-pp4.sh" | awk '{print $2}')
-if [ "$util" != "0.99" ]; then
-  log "⚠️  当前 util=$util（应为 0.99）。先恢复再测，否则数字不可比。"; exit 1
-fi
+log "=== run_kv: KV=$KV  gpus=$GPUS  rounds=$ROUNDS  util=$UTIL ==="
 
-# 备份 → 改 KV
-cp "$ENGINE/run-pp4.sh" "$ENGINE/run-pp4.sh.bak-kv$KV-$STAMP"
-sed -i "s/--max-model-len [0-9]*/--max-model-len $KV/; s/--kv-cache-tokens [0-9]*/--kv-cache-tokens $KV/" "$ENGINE/run-pp4.sh"
-log "已改 KV=$KV（备份: run-pp4.sh.bak-kv$KV-$STAMP）"
+# 备份 → 改 KV 与 util
+cp "$ENGINE/run-pp4.sh" "$ENGINE/run-pp4.sh.bak-kv$KV-u$(echo "$UTIL"|tr -d '.')-$STAMP"
+sed -i "s/--max-model-len [0-9]*/--max-model-len $KV/; s/--kv-cache-tokens [0-9]*/--kv-cache-tokens $KV/; s/--gpu-memory-utilization [0-9.]*/--gpu-memory-utilization $UTIL/" "$ENGINE/run-pp4.sh"
+log "已改 KV=$KV util=$UTIL（备份: run-pp4.sh.bak-kv$KV-u$(echo "$UTIL"|tr -d '.')-$STAMP）"
 grep -E "max-model-len|kv-cache-tokens|gpu-memory-utilization" "$ENGINE/run-pp4.sh" | sed 's/^/    /' | tee -a "$RUNLOG"
 
 # 停 ComfyUI（内存前置） + 起引擎
