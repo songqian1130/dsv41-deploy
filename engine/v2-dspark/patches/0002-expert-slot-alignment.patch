@@ -1,0 +1,35 @@
+diff --git a/vllm/models/deepseek_v4_1/hybrid.py b/vllm/models/deepseek_v4_1/hybrid.py
+--- a/vllm/models/deepseek_v4_1/hybrid.py
++++ b/vllm/models/deepseek_v4_1/hybrid.py
+@@ -191,11 +191,11 @@
+         if target < 8:
+             result.append((local_device or 0, 0))
+             continue
+-        target = target // 8 * 8
++        target = target  # 去掉 8 槽位对齐，用尽余量
+         device = max(range(len(remaining)), key=lambda d: remaining[d])
+         if local_device is not None and remaining[local_device] >= target:
+             device = local_device
+-        count = min(target, remaining[device]) // 8 * 8
++        count = min(target, remaining[device])  # 同上
+         result.append((device, count))
+         remaining[device] -= count
+     result = expand_expert_cache(result, capacities, bank_size)
+@@ -224,14 +224,14 @@
+         candidates = [
+             i
+             for i, (device, count) in enumerate(result)
+-            if count and count + 8 < bank_size and remaining[device] >= 8
++            if count and count + 1 < bank_size and remaining[device] >= 1  # 步长 8 -> 1
+         ]
+         if not candidates:
+             break
+         layer = min(candidates, key=lambda i: result[i][1])
+         device, count = result[layer]
+-        result[layer] = (device, count + 8)
+-        remaining[device] -= 8
++        result[layer] = (device, count + 1)
++        remaining[device] -= 1
+     return result
+ 
+ 

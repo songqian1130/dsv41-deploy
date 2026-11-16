@@ -16,10 +16,10 @@
     "version": "vLLM 0.1.dev21380 · V2 Model Runner",
     "spec": "dspark k=5 + 自适应验证",
     "patched": true,
-    "patched_note": "与方案 A 同镜像；分区与线程数不同，引擎一字未动",
+    "patched_note": "与方案 A 同镜像；分区与线程数不同。2026-11-16 起额外挂载 0002 补丁覆盖 hybrid.py（改的是我们自己）",
     "source": "https://github.com/buliaoyin/vllm-backport @ c3d3104de0（第三方 fork）",
     "patch_author": "同 A：LocalFrameLab（https://github.com/LocalFrameLab/deepseek-v41-cmp170hx-x99，Apache-2.0，未改）",
-    "patch_note": "0001-host-staging-and-cache-interval.patch（8.3 KB）= 上游 x99-stable.patch",
+    "patch_note": "0001-host-staging-and-cache-interval.patch（上游 LocalFrameLab）+ 0002-expert-slot-alignment.patch（**我们写的**：去掉 expert 槽位的 8 对齐，用尽显存余量）",
     "pullable": "unverified",
     "restore": [
       "rebuild",
@@ -29,20 +29,23 @@
   },
   "hardware": {
     "gpus": 4,
-    "gpu_ids": "0-3",
-    "gpu4_free": true,
+    "gpu_ids": "1,2,3,4（2026-11-16 起；GPU0 交给 ComfyUI）",
+    "gpu4_free": false,
     "host_mem_gib": 150,
     "startup": null,
-    "startup_s": null
+    "startup_s": null,
+    "gpu0_free": true
   },
   "params": {
     "pipeline_layers": "[6,6,7,21]",
     "cpu_threads": "[28,16]",
     "spec_k": "5",
-    "kv_tokens": "1048576（2026-11-15 起，模型原生上限，待上机验证）",
+    "kv_tokens": "524288（2026-11-15 定；1M 会让专家预算 −15.8%，已证伪）",
     "batched_tokens": "4096",
     "max_model_len": "1048576",
-    "engram": "SSD · 4 GiB 缓存"
+    "engram": "SSD · 4 GiB 缓存",
+    "gpu_mem_util": "0.97（2026-11-16 起，原 0.92）",
+    "expert_slots": "每层 112~208（2026-11-16 起，原 72）；4 卡预算 65.2 GiB（原 52.5）"
   },
   "decode": {
     "code_python": 74.6,
@@ -52,7 +55,7 @@
     "mean": 60.9,
     "itl_ms": 57.9,
     "worst": "zh_tech 47.7",
-    "note": "cases_v1 三轮 nonce 101/102/103 均值"
+    "note": "cases_v1 三轮 nonce 101/102/103 均值（131k 池时代）。2026-11-16 单路 400 tok 实测 15.3 s ≈86 tok/s（0.97 + 0002 补丁，与前者不同口径）"
   },
   "concurrency": null,
   "ttft": {
