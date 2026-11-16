@@ -29,7 +29,7 @@
   },
   "hardware": {
     "gpus": 4,
-    "gpu_ids": "1,2,3,4（2026-11-16 起；GPU0 交给 ComfyUI）",
+    "gpu_ids": "1,2,3,4（固定，2026-11-16 A/B 实测 GPU4 做 rank3 与 GPU0 无差；GPU0 永远给 ComfyUI）",
     "gpu4_free": false,
     "host_mem_gib": 150,
     "startup": null,
@@ -40,12 +40,12 @@
     "pipeline_layers": "[6,6,7,21]",
     "cpu_threads": "[28,16]",
     "spec_k": "5",
-    "kv_tokens": "524288（2026-11-15 定；1M 会让专家预算 −15.8%，已证伪）",
+    "kv_tokens": "512k=524288（2026-11-16 实测 51.78 wall/58.29 decode，4032 槽）；131k=测试基准（52.25/59.41，4320 槽）；1M=3640 槽对比中。用户拍板生产用 512k 或 1M，131k 不用于生产",
     "batched_tokens": "4096",
     "max_model_len": "1048576",
     "engram": "SSD · 4 GiB 缓存",
     "gpu_mem_util": "0.99（原值；2026-11-16 曾误改为 0.92/0.97，导致槽位 4320→3320，已恢复）",
-    "expert_slots": "每层 216（PP3 那 20 层，util 0.99 + KV 131k），总 4320。Probe 行显示的是砍半值 104"
+    "expert_slots": "131k 档 4320（56.25%）/ 512k 档 4032（52.5%）/ 1M 档 3640（47.4%），util 0.99 下随 KV 增大线性减少"
   },
   "decode": {
     "code_python": 74.6,
