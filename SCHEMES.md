@@ -2,11 +2,12 @@
 
 所有试过的部署方案，参数 + 实测 + 判定。**一份方案一屏，能横向比。**
 
-- 可部署的方案（A / B / C）各有独立目录与一键脚本：`schemes/<方案名>/`
+- 可部署的方案（A / B / C / L）各有独立目录与一键脚本：`schemes/<方案名>/`
 - 可视化对比：根目录 [`index.html`](index.html)
 - 输出标准：`docs/SCHEME-CARD.md` ｜ 已否方向：`docs/rejected.md`
+- **测速一律走 [`bench/README.md`](bench/README.md)**：那里有实验矩阵（已测/待测/已证伪）、热身要求、口径定义。**跑之前先看表，别重复测。**
 
-> 当前生产：**A · PP5 fast** ｜ 备选：**B · PP4 t16**（四卡，GPU4 留给 ComfyUI）
+> 当前生产：**A · PP5 fast** ｜ 备选：**B · PP4 t16**（四卡 GPU1-4，GPU0 留给 ComfyUI）
 
 ---
 

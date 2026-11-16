@@ -174,10 +174,13 @@ dsv41-deploy/
 │   ├── pp4-t16/              方案 B：4 卡，GPU4 留给 ComfyUI
 │   ├── pp5-legacy/           方案 C：V1 旧引擎（SSD / RAM 两种 engram）
 │   └── pp4-cpumoe/           方案 L：V1 + 9 层专家跑 CPU，GPU3 留给 ComfyUI（不崩优先）
-├── bench/                    基准与探针
+├── bench/                    ★ 性能测试的唯一入口（先读 README.md 的实验矩阵再动手）
+│   ├── README.md             ★ 铁律 7 条 + 实验矩阵（已测/待测/已证伪）+ 硬件基线
 │   ├── cases_v1.json         冻结用例集（有 sha256 校验，别改）
-│   ├── run_cases.py          单流四档 + C1/C2/C3
+│   ├── run_cases.py          单流四档，自动记启动参数快照
+│   ├── ab_rank3.sh           卡位 A/B：固定前三段只换 rank3（默认 1,2,3,4 vs 1,2,3,0）
 │   ├── probe_capacity.py     并发 / prefill / 容量
+│   ├── hang/                 GPU4 冻结复现包（run-lethal / synthetic_load / sweep_cards）
 │   └── results|capacity.jsonl  原始结果
 ├── engine/                   ★ 引擎配方（260 KB）：镜像 99.6% 是公开资源，只有 191 MB .so 不保证逐字节相同
 │   ├── README.md             体积拆解 / 三种还原法 / 来源 / 补丁 / 还缺什么
@@ -225,11 +228,17 @@ dsv41-deploy/
 # 测一次单流四档（换 nonce，别复用）
 python3 bench/run_cases.py <label> <nonce> --set real
 
+# 卡位 A/B（固定前三个 PP rank，只换 rank3；默认 1,2,3,4 vs 1,2,3,0，各 6 轮）
+./bench/ab_rank3.sh 6
+
 # 4 路并发 / prefill 斜率 / 容量速算
 python3 bench/probe_capacity.py conc    --label <label> --conc 4 --ctx 200 --out 300
 python3 bench/probe_capacity.py prefill --label <label> --sizes 20,80,240
 python3 bench/probe_capacity.py table   --kv-tokens 1048576 --seqs 4
 ```
+
+> 上面第 1 条是 **decode 口径**（引擎自报）。方案卡里的对比数字是 **`tps_wall` 端到端口径**，
+> 两者不可混用。口径细节、热身要求、已证伪组合见 [`bench/README.md`](bench/README.md)。
 
 ---
 
