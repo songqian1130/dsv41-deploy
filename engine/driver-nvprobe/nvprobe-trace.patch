@@ -1,0 +1,258 @@
+diff --git a/kernel-open/nvidia/nv.c b/kernel-open/nvidia/nv.c
+index 6c2547a..2b4e488 100644
+--- a/kernel-open/nvidia/nv.c
++++ b/kernel-open/nvidia/nv.c
+@@ -67,6 +67,20 @@
+ #include <linux/cdev.h>
+ #include <linux/delay.h>
+ #include <linux/io.h>
++
++/*
++ * dsv41 NVPROBE (2026-11-17): 死机定位探针。
++ * 设备 open/close/锁等待全轨迹，printk 直出（netconsole/kmsg 均可捕获）。
++ * 频控设计：锁等待用 down_trylock 探测（无争用零输出）；RM 入口 5s 限频。
++ * 判读：死机后日志最后一条无配对 END 的 BEGIN 行 = 卡死现场（函数级）。
++ */
++#include <linux/ktime.h>
++#include <linux/semaphore.h>
++#include <linux/jiffies.h>
++#define NVPROBE(fmt, ...) \
++    printk(KERN_INFO "NVPROBE %s[%d] " fmt "\n", \
++           current->comm, (int)current->pid, ##__VA_ARGS__)
++static unsigned long nvp_last_rmcmd_jiffies;
+ #include <linux/pci.h>
+ #include <uapi/linux/pci_regs.h>
+ 
+@@ -1153,7 +1167,14 @@ static nv_linux_state_t *find_minor(NvU32 minor)
+     nvl = find_minor_locked(minor);
+     if (nvl != NULL)
+     {
+-        down(&nvl->ldata_lock);
++        u64 nvp_t0 = ktime_get_ns();
++        if (down_trylock(&nvl->ldata_lock) != 0)
++        {
++            NVPROBE("FIND-MINOR llock wait-begin minor=%u", minor);
++            down(&nvl->ldata_lock);
++            NVPROBE("FIND-MINOR llock acquired wait=%llums",
++                    (ktime_get_ns() - nvp_t0) / 1000000LL);
++        }
+     }
+ 
+     UNLOCK_NV_LINUX_DEVICES();
+@@ -1175,7 +1196,14 @@ static nv_linux_state_t *find_gpu_id(NvU32 gpu_id)
+         nv_state_t *nv = NV_STATE_PTR(nvl);
+         if (nv->gpu_id == gpu_id)
+         {
+-            down(&nvl->ldata_lock);
++            u64 nvp_t0 = ktime_get_ns();
++            if (down_trylock(&nvl->ldata_lock) != 0)
++            {
++                NVPROBE("FIND-GPUID llock wait-begin gpu_id=0x%x", gpu_id);
++                down(&nvl->ldata_lock);
++                NVPROBE("FIND-GPUID llock acquired wait=%llums",
++                        (ktime_get_ns() - nvp_t0) / 1000000LL);
++            }
+             break;
+         }
+         nvl = nvl->next;
+@@ -1201,7 +1229,16 @@ nv_linux_state_t *find_uuid(const NvU8 *uuid)
+     for (nvl = nv_linux_devices; nvl; nvl = nvl->next)
+     {
+         nv = NV_STATE_PTR(nvl);
+-        down(&nvl->ldata_lock);
++        {
++            u64 nvp_t0 = ktime_get_ns();
++            if (down_trylock(&nvl->ldata_lock) != 0)
++            {
++                NVPROBE("FIND-UUID llock wait-begin");
++                down(&nvl->ldata_lock);
++                NVPROBE("FIND-UUID llock acquired wait=%llums",
++                        (ktime_get_ns() - nvp_t0) / 1000000LL);
++            }
++        }
+         dev_uuid = nv_get_cached_uuid(nv);
+         if (dev_uuid && memcmp(dev_uuid, uuid, GPU_UUID_LEN) == 0)
+             goto out;
+@@ -1250,7 +1287,16 @@ static nv_linux_state_t *find_uuid_candidate(const NvU8 *uuid)
+         for (nvl = nv_linux_devices; nvl; nvl = nvl->next)
+         {
+             nv = NV_STATE_PTR(nvl);
+-            down(&nvl->ldata_lock);
++            {
++                u64 nvp_t0 = ktime_get_ns();
++                if (down_trylock(&nvl->ldata_lock) != 0)
++                {
++                    NVPROBE("FIND-UUUID-CAND llock wait-begin");
++                    down(&nvl->ldata_lock);
++                    NVPROBE("FIND-UUUID-CAND llock acquired wait=%llums",
++                            (ktime_get_ns() - nvp_t0) / 1000000LL);
++                }
++            }
+             dev_uuid = nv_get_cached_uuid(nv);
+             if (dev_uuid)
+             {
+@@ -1737,6 +1783,8 @@ static int nv_open_device(nv_state_t *nv, nvidia_stack_t *sp)
+     int rc;
+     NV_STATUS status;
+ 
++    NVPROBE("OPEN-DEV begin gpu_id=0x%llx", (unsigned long long)nv->gpu_id);
++
+     if ((nv->flags & NV_FLAG_EXCLUDE) != 0)
+     {
+         char *uuid = rm_get_gpu_uuid(sp, nv);
+@@ -1803,6 +1851,7 @@ static int nv_open_device(nv_state_t *nv, nvidia_stack_t *sp)
+ 
+     atomic64_inc(&nvl->usage_count);
+ 
++    NVPROBE("OPEN-DEV end gpu_id=0x%llx", (unsigned long long)nv->gpu_id);
+     return 0;
+ }
+ 
+@@ -1863,6 +1912,8 @@ static void nvidia_open_deferred(void *nvlfp_raw)
+     nv_linux_state_t *nvl = nvlfp->deferred_open_nvl;
+     int rc;
+ 
++    NVPROBE("OPEN-DEFER run");
++
+     /*
+      * Deferred opens and device removal are synchronized via
+      * nvl->is_accepting_opens and nvl->open_q flushes so that nvl is
+@@ -1877,7 +1928,16 @@ static void nvidia_open_deferred(void *nvlfp_raw)
+      * So, it is safe to proceed without nv_system_pm_lock here (in fact, it
+      * must not be taken to ensure nvl->open_q can make forward progress).
+      */
+-    down(&nvl->ldata_lock);
++    {
++        u64 nvp_t0 = ktime_get_ns();
++        if (down_trylock(&nvl->ldata_lock) != 0)
++        {
++            NVPROBE("OPEN-DEFER llock wait-begin");
++            down(&nvl->ldata_lock);
++            NVPROBE("OPEN-DEFER llock acquired wait=%llums",
++                    (ktime_get_ns() - nvp_t0) / 1000000LL);
++        }
++    }
+     rc = nv_open_device_for_nvlfp(NV_STATE_PTR(nvl), nvlfp->sp, nvlfp);
+ 
+     /* Only add open file tracking where nvl->usage_count is incremented */
+@@ -1953,6 +2013,8 @@ nvidia_open(
+     nv_linux_file_private_t *nvlfp = NULL;
+     nvidia_stack_t *sp = NULL;
+ 
++    NVPROBE("OPEN begin");
++
+     nv_printf(NV_DBG_INFO, "NVRM: nvidia_open...\n");
+ 
+     nvlfp = nv_alloc_file_private();
+@@ -1979,6 +2041,7 @@ nvidia_open(
+         rc = nvidia_ctl_open(inode, file);
+         if (rc != 0)
+             goto failed;
++        NVPROBE("OPEN ctl end rc=%d", rc);
+         return rc;
+     }
+ 
+@@ -2040,6 +2103,7 @@ nvidia_open(
+         if (!nvl->is_accepting_opens)
+         {
+             /* Background kthread is not accepting opens, bail! */
++            NVPROBE("OPEN defer-reject busy");
+             rc = -EBUSY;
+             goto nonblock_end;
+         }
+@@ -2058,6 +2122,8 @@ nvidia_open(
+             rc = -EBUSY;
+         }
+ 
++        NVPROBE("OPEN defer scheduled=%d", item_scheduled);
++
+ nonblock_end:
+         up(&nvl->open_q_lock);
+         UNLOCK_NV_LINUX_DEVICES();
+@@ -2074,6 +2140,7 @@ failed:
+         }
+     }
+ 
++    NVPROBE("OPEN end rc=%d", rc);
+     return rc;
+ }
+ 
+@@ -2249,6 +2316,8 @@ nvidia_close_callback(
+     nvidia_stack_t *sp = nvlfp->sp;
+     NvBool bRemove = NV_FALSE;
+ 
++    NVPROBE("CLOSE-CB begin");
++
+     nvl = nvlfp->nvptr;
+     if (nvl == NULL)
+     {
+@@ -2270,8 +2339,19 @@ nvidia_close_callback(
+     list_del(&nvlfp->entry);
+     up(&nvl->mmap_lock);
+ 
+-    down(&nvl->ldata_lock);
++    {
++        u64 nvp_t0 = ktime_get_ns();
++        if (down_trylock(&nvl->ldata_lock) != 0)
++        {
++            NVPROBE("CLOSE-CB llock wait-begin");
++            down(&nvl->ldata_lock);
++            NVPROBE("CLOSE-CB llock acquired wait=%llums",
++                    (ktime_get_ns() - nvp_t0) / 1000000LL);
++        }
++    }
++    NVPROBE("CLOSE-DEV teardown begin");
+     nv_close_device(nv, sp);
++    NVPROBE("CLOSE-DEV teardown end");
+ 
+     bRemove = (!NV_IS_DEVICE_IN_SURPRISE_REMOVAL(nv)) &&
+               (atomic64_read(&nvl->usage_count) == 0) &&
+@@ -2333,12 +2413,15 @@ nvidia_close(
+     int rc;
+     nv_linux_file_private_t *nvlfp = NV_GET_LINUX_FILE_PRIVATE(file);
+ 
++    NVPROBE("CLOSE begin");
++
+     nv_printf(NV_DBG_INFO,
+               "NVRM: nvidia_close on GPU with minor number %d\n",
+               NV_DEVICE_MINOR_NUMBER(inode));
+ 
+     if (nv_is_control_device(inode))
+     {
++        NVPROBE("CLOSE ctl end");
+         return nvidia_ctl_close(inode, file);
+     }
+ 
+@@ -2365,6 +2448,7 @@ nvidia_close(
+         WARN_ON(rc == 0);
+     }
+ 
++    NVPROBE("CLOSE end");
+     return 0;
+ }
+ 
+@@ -2898,9 +2982,24 @@ unlock:
+         }
+ 
+         default:
++        {
++            u64 nvp_t0 = ktime_get_ns();
++            if (time_after(jiffies, nvp_last_rmcmd_jiffies + 5 * HZ))
++            {
++                nvp_last_rmcmd_jiffies = jiffies;
++                NVPROBE("RMCMD begin cmd=0x%x", arg_cmd);
++            }
+             rmStatus = rm_ioctl(sp, nv, &nvlfp->nvfp, arg_cmd, arg_copy, arg_size);
++            {
++                u64 nvp_ms = (ktime_get_ns() - nvp_t0) / 1000000LL;
++                if (nvp_ms > 100)
++                {
++                    NVPROBE("RMCMD slow cmd=0x%x took=%llums", arg_cmd, nvp_ms);
++                }
++            }
+             status = ((rmStatus == NV_OK) ? 0 : -EINVAL);
+             break;
++        }
+     }
+ 
+ done:
