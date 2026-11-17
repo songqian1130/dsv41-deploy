@@ -66,6 +66,24 @@
 0.97 实测槽位 −7.9% 换 wall −8.3%（≈1:1）——覆盖率跌破 ~47% 后 CPU 路由损失线性放大，
 0.97 省的 1.3 GB/卡余量不值；0.97 已在 512k（30.8）与 1M（46.23）两档证伪，勿再用。
 
+### 3.2 死机触发器稳定复现（2026-11-17，用户授权"看起来是必挂，可以模拟一下"）
+
+> 归因已锁定事件形态：**ComfyUI 大任务完成瞬间的显存卸载 + 引擎专家补货 DMA 并发**（11-17
+> 06:11 与 10:00 两次同构；卡/槽均不跟随，见 `docs/GPU-HARDWARE.md`）。
+
+| # | 组合 | 内容 | 结果 |
+|---|---|---|---|
+| R1 | 引擎 2 路 600s + GPU0 churn | engine_busy 600s×2 路 + synthetic_load `--stage 0.3 --stage-gpu 0 --stage-reserve-mb 26000 --stage-churn-mb 8192` | ❌ 存活（churn 是 allocator 回池，**没打到驱动层**——设计缺陷） |
+| R2 | 引擎 2 路 + GPU0 驱动级卸载风暴 | gpu0_offload_storm.py 8GB×85 周期（分配→DMA 回 host→del→**empty_cache 真 cudaFree**） | ❌ 存活 |
+| R3 | 26GB 整体卸载 + 24k 长 prompt 引擎 | gpu0_offload_storm 26GB 单块×10 次 + repro_r3_engine 26.5k token prefill×19 次（4.6k tok/s 大块 H2D+补货爆发，每 15s） | ❌ 存活 |
+
+**结论（2026-11-17 11:00）**：合成模拟三轮（allocator churn → 驱动级 8GB → 26GB+长 prefill）全存活，
+触发窗口比合成负载更深/更窄。剩余未模拟差异：① ComfyUI DynamicVRAM 的 VMM unmap 路径
+（cuMemMap≠cudaFree，PCIe 事务模式不同）；② 卸载与补货的**精确同时性**（生产是数小时高频换入
+换出后撞上的相位窗口，合成负载相位随机）；③ ComfyUI 卸载全链含 pinned staging 文件流量。
+**转向真实栈路线**：生产即复现器（用户客户端自动提交任务 + ComfyUI 自然卸载），blackbox 取证 +
+智能插座兜底 + 缓解实验（ASPM off 最便宜先试 / 编排错峰）。
+
 ### 3.1c 插槽对调实验（2026-11-17，物理对调 02:00.0 ↔ 09:00.0 两张卡）
 
 > 背景与判读协议见 `docs/GPU-HARDWARE.md` 第 6 节。对调后：嫌疑卡 1322321055006
