@@ -1,16 +1,24 @@
-# 死机根因：NVIDIA open 驱动 #968 族死锁（2026-11-17 锁定）
+# 死机根因调查：从 #968 软死锁假说 → 硬冻结（2026-11-17 20:40 修订）
 
-> 历史文档 [GPU4-HANG.md](GPU4-HANG.md) 记录了取证过程与"GPU4 嫌疑"；本文档是最终归因。
-> 结论：**死机不是卡、不是槽、不是 PCIe 链路，是 nvidia-open 内核模块的已知死锁 bug 族**
-> （上游 issue #968 / #922 / #979，截至 2026-11 open 未修）。
+> 历史文档 [GPU4-HANG.md](GPU4-HANG.md) 记录了取证过程与"GPU4 嫌疑"；本文档是根因调查主线。
+> **状态修订（19:12 死机 + 观测阵列 v2 首战）**：#968 软死锁**降级**为次要假说——
+> 5 次死机中 4 次为"零内核输出瞬死"，死亡深到 NMI 都没来得及打印，指向平台级硬楔死。
 
-## 1. 结论
+## 0. 五次死机签名总表（2026-11-17 20:40）
 
-**机理**：进程 A open GPU 设备（`nv_open_q`，blocked at `rwsem_down_write_slowpath`）与
-进程 B close/shutdown GPU（需同一把 `ldata_lock`）互等 → 双方进入不可中断睡眠（D 状态）
-→ 整机冻结，无 panic、无 Xid、journal 戛然而止，唯一恢复手段 = 断电。
+| # | 时间 | 死亡形态 | 内核输出 | 当时负载 |
+|---|---|---|---|---|
+| 1 | 11-16 16:53 | 瞬死 | 0（P2P 实验触发） | P2P 大块拷贝 × matmul |
+| 2 | 11-16 17:00 | **rwsem 栈可见**（唯一一次） | hung-task dump：nv_open_q blocked | 引擎+ComfyUI |
+| 3 | 11-17 06:11 | 瞬死 | 0 | SeedVR2 放大 × 引擎补货 |
+| 4 | 11-17 15:14 | 瞬死 | 0（journald 先断 6s） | 引擎 3 路 decode（ComfyUI 空闲） |
+| 5 | 11-17 19:12:11 | 瞬死 | **0（29 分钟零输出后瞬死）** | 引擎 2 路 decode+补货 × ComfyUI 装载 VAE |
 
-上游报告原文（#968）与我们 11-16 17:00 的内核栈逐字吻合：
+## 1. 原假说（#968 软死锁）及降级理由
+
+**机理（保留备查）**：进程 A open GPU 设备（`nv_open_q`，blocked at `rwsem_down_write_slowpath`）与
+进程 B close/shutdown GPU（需同一把 `ldata_lock`）互等 → 双方 D 状态 → 整机冻结。
+上游报告原文（#968）与 11-16 17:00 的内核栈逐字吻合：
 
 ```
 Process 1: nv_open_q (trying to OPEN/initialize GPU)
@@ -21,7 +29,28 @@ Both in state D — machine completely stalls, not even keyboard input.
 
 驱动 535.x–595.x+ 全线中招（我们是 610.43.03 open + cmpunlocker 解锁补丁）。
 
-## 2. 证据链
+**降级理由（19:12 死机，观测阵列 v2 完整观测下发生）**：
+- 死前 29 分钟内核零输出（kmsg.log 与 netconsole 双向确认），死亡瞬间一条 printk 都没有
+- hung-task 10s 已武装且 warnings 无限——若任务 D 卡 >10s 必然刷屏，实际零输出 →
+  死前没有任何任务阻塞超过 10 秒，不符合"互等死锁逐步堆死"的形态
+- nmi_watchdog=1 已武装——CPU 关中断自旋 >阈值会打 "hard lockup"，实际零输出
+- probe.log（bpftrace v2）死亡时刻 open/close 全配对、无慢锁——设备 open/close 路径干净
+- **能解释的残余角色**：11-16 17:00 那次栈可能是楔死边缘的 OS 可见投影，或 5 次里唯一的
+  软死锁变体。缓解措施（persistence/停 fastwatch）保留。
+
+## 1.5 现主假说：平台级硬楔死（X99 PCIe fabric / SMI 风暴）
+
+支持证据：
+- 死亡深于 NMI 打印：SMI（系统管理中断，BIOS/ME 发出）优先级高于 NMI，SMI 死循环可
+  完全饿死内核打印路径 → **零输出瞬死**的优雅解释
+- **"perf: interrupt took too long" 整小时持续恶化**（17:43→18:43，PMI 处理耗时
+  2.5k→10k 周期，采样率 79k→20k Hz 一路降）——PMI 被某物偷时间的经典签名，SMI 嫌疑最大
+- 死机总在引擎专家补货 DMA / ComfyUI 大上传并发的 PCIe 高压窗口（5/5）
+- 死前最后一个 blackbox 采样：单引擎卡 SM 频率骤降 + SW Power Cap 限频（2/2 有此签名，
+  但也可能只是正常功耗墙限频，弱信号）
+- AER 全 0、MCE 全 0（rasdaemon 已跑满整个 boot -1）——链路质量和 CPU/内存无可见异常
+
+## 2. 证据链（原 #968 分析，保留）
 
 | # | 证据 | 吻合点 |
 |---|---|---|
