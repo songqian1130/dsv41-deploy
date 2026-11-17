@@ -88,8 +88,8 @@ Both in state D — machine completely stalls, not even keyboard input.
 
 **部署细节**：bpftrace v0.25 不支持 `=~` 正则谓词（用相等链）；`delete(@map[key])` 旧语法仍在
 但建议 `delete(@map, key)`；Windows 接收器 `tools/netconsole_listener.py`（UDP 6667，已加防火墙
-规则 dsv41-netconsole-udp6667；**开机自启需手动注册**：管理员 CMD 运行
-`schtasks /Create /TN "dsv41-netconsole-listener" /SC ONLOGON /TR "\"C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\pythonw.exe\" \"E:\Projects\game-common-tools\dsv41-deploy\tools\netconsole_listener.py\"" /F`）。
+规则 dsv41-netconsole-udp6667；**开机自启已注册**（任务 `dsv41-netconsole-listener`，LogonTrigger
+→ pythonw + netconsole_listener.py，2026-11-17 用户手动注册，XML 已核验）。
 
 ## 6. 遗留未解
 
