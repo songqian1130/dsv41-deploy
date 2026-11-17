@@ -1,0 +1,46 @@
+#!/usr/bin/env bpftrace
+/* dsv41 死锁探测器：跟踪 NVIDIA 驱动 open/close 路径。
+ * 输出逐行给 fsync 管道（dsv41-probe-fsync.py，由 python 侧补时间戳并逐行 fsync）。
+ * 事件低频（引擎/ComfyUI 常驻不重开设备），全量记录无压力。 */
+
+BEGIN
+{
+    printf("===== PROBE START =====\n");
+}
+
+/* open 路径（含 deferred open_q 分支） */
+kprobe:nv_open_device
+{
+    printf("OPEN-BEGIN  %s[%d]\n", comm, pid);
+    @t_open[tid] = nsecs;
+}
+
+kretprobe:nv_open_device
+/ @t_open[tid] /
+{
+    printf("OPEN-END    %s[%d] ret=%d %dms\n", comm, pid,
+        (int64)retval, (nsecs - @t_open[tid]) / 1000000);
+    delete(@t_open[tid]);
+}
+
+/* close 路径（chardev release；ComfyUI/引擎释放设备时命中） */
+kprobe:nvidia_close
+{
+    printf("CLOSE-BEGIN %s[%d]\n", comm, pid);
+    @t_close[tid] = nsecs;
+}
+
+kretprobe:nvidia_close
+/ @t_close[tid] /
+{
+    printf("CLOSE-END   %s[%d] %dms\n", comm, pid,
+        (nsecs - @t_close[tid]) / 1000000);
+    delete(@t_close[tid]);
+}
+
+/* PM suspend 路径：nv_suspend_devices 已内联无法 kprobe（control=on 下也不应触发） */
+
+END
+{
+    printf("===== PROBE END =====\n");
+}
