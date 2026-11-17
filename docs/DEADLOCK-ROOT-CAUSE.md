@@ -64,7 +64,7 @@ Both in state D — machine completely stalls, not even keyboard input.
 ## 4. 后续方向
 
 1. **监控改造（正道）**：blackbox/fastwatch 改用 **pynvml 常驻连接**（NVML init 一次长连接，
-   无 open/close 循环）——既保留监控又根除燃料。
+   无 open/close 循环）——既保留监控又根除燃料。blackbox 已改 pynvml 版（11-17 16:23）。
 2. **硬修复候选**：[gpuGUARD](https://github.com/cyclecore-dev/gpuGUARD) 的
    `patches/002-fix-open_q-flush-deadlock-comprehensive.patch`（把 open_q flush 移到
    ldata_lock 之前）——580.82.09 版本，移植到 610.43.03+cmpunlocker 需要分析其补丁基线。
@@ -72,7 +72,26 @@ Both in state D — machine completely stalls, not even keyboard input.
 4. **智能插座兜底**（独立于根因）：`tools/dsv41_watchdog.ps1` 骨架已写，等插座品牌接 API——
    死机 2-3 分钟自动恢复（BIOS Restore-on-AC 已验证）。
 
-## 5. 遗留未解
+## 5. 观测阵列 v2（2026-11-17 17:30 上线——死机瞬间直接定位卡死函数/锁）
+
+四层独立取证，死机后无需猜：
+
+| 层 | 组件 | 捕捉 | 判读 |
+|---|---|---|---|
+| 1 | **内核 hung-task**（已配：timeout 10s / warnings 无限 / panic 关 / all_cpu_backtrace=1 / `DETECT_HUNG_TASK_BLOCKER=y`） | D 状态任务卡 >10s 自动打印**阻塞栈+锁持有者** | 死机后看内核日志尾部"INFO: task ... blocked"——**卡死函数+持锁进程直接可读** |
+| 2 | **netconsole**（`dsv41-netconsole.service`：UDP 192.168.3.28:6667，printk 级提到 7） | 全部内核 printk 实时外发，journald/磁盘死了照样发 | Windows 侧接收器落盘 `dsv41-deploy/logs/netconsole-*.log`（端到端已验证） |
+| 3 | **bpftrace 探测器 v2**（`dsv41-probe.service`，脚本 `tools/dsv41-probe.bt`，逐行 fsync 落盘 `/var/log/dsv41-blackbox/probe.log`） | nv_open_device / nvidia_close / nv_close_device 全记录；rwsem/semaphore 慢路径 >300ms（含锁地址）；GPU 进程 down() 入口 | **未配对的 BEGIN = 持有者现场**（最后一条 OPEN/CLOSE-BEGIN 没有对应 END）；RWS-WAIT/SEM-WAIT 行 = 等待者与哪把锁 |
+| 4 | **NVML 金丝雀**（`dsv41-tripwire.service`，`tools/dsv41-tripwire.py`） | pynvml init 每 10s 探测（0.1Hz 最小燃料）；卡住 >20s = 死锁判据 → **自动 sysrq w/l/t 三连 dump** | w=阻塞任务栈 / l=每 CPU 当前函数（自旋场景）/ t=全任务调度状态——dump 走 printk → netconsole 外发 |
+
+死机后判读动线：Windows 收 netconsole 日志（活的最后瞬间）→ 服务器 `probe.log` 尾部（持有者）
+→ hung-task dump（等待者+卡死函数）→ rasdaemon（MCE/AER 硬件事件）→ blackbox pynvml（GPU 曲线）。
+
+**部署细节**：bpftrace v0.25 不支持 `=~` 正则谓词（用相等链）；`delete(@map[key])` 旧语法仍在
+但建议 `delete(@map, key)`；Windows 接收器 `tools/netconsole_listener.py`（UDP 6667，已加防火墙
+规则 dsv41-netconsole-udp6667；**开机自启需手动注册**：管理员 CMD 运行
+`schtasks /Create /TN "dsv41-netconsole-listener" /SC ONLOGON /TR "\"C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\pythonw.exe\" \"E:\Projects\game-common-tools\dsv41-deploy\tools\netconsole_listener.py\"" /F`）。
+
+## 6. 遗留未解
 
 - 每次开机 GPU1=110W、GPU4=250W 的来源（journal/配置/crontab 全查无；嫌疑用户侧自动化栈
   pynvml 或监控插件）——已手动修正功耗墙 250/150/150/150/150。

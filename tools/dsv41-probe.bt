@@ -1,46 +1,141 @@
 #!/usr/bin/env bpftrace
-/* dsv41 死锁探测器：跟踪 NVIDIA 驱动 open/close 路径。
- * 输出逐行给 fsync 管道（dsv41-probe-fsync.py，由 python 侧补时间戳并逐行 fsync）。
- * 事件低频（引擎/ComfyUI 常驻不重开设备），全量记录无压力。 */
+/*
+ * dsv41 死锁探测器 v2 —— 死机瞬间直接定位"卡死在哪个函数/哪把锁"
+ *
+ * 探测面：
+ *  1) nv_open_device / nvidia_close / nv_close_device  入出全记录（无阈值）
+ *     —— 持有者判据：死机后 probe.log 里最后一条 BEGIN 没有对应 END
+ *  2) rwsem_down_write_slowpath / rwsem_down_read_slowpath  慢路径 >300ms
+ *     —— 等待者判据：打印等了多久 + 等的是哪把锁（信号量地址）
+ *  3) down / down_killable / down_interruptible（semaphore 慢路径）
+ *     —— comm 过滤打 BEGIN（GPU 相关进程的锁等待入口），返回 >300ms 打慢等待
+ *
+ * 配套（独立生效）：
+ *  - 内核 hung-task：D 状态 >10s 自动打印阻塞栈 + 锁持有者（DETECT_HUNG_TASK_BLOCKER=y）
+ *  - netconsole：上述全部 printk 走 UDP 实时发 192.168.3.28:6667（journald 死了照样发）
+ *  - dsv41-tripwire：pynvml 金丝雀卡住 >20s 自动 sysrq w/l/t 三连 dump
+ */
 
-BEGIN
-{
-    printf("===== PROBE START =====\n");
-}
+BEGIN { printf("PROBE-V2-ALIVE\n"); }
 
-/* open 路径（含 deferred open_q 分支） */
+/* ---- 设备 open/close 全记录（#968 死锁的 OPEN 一侧 / CLOSE 一侧） ---- */
 kprobe:nv_open_device
 {
-    printf("OPEN-BEGIN  %s[%d]\n", comm, pid);
-    @t_open[tid] = nsecs;
+    printf("OPEN-BEGIN %s[%d]\n", comm, pid);
+    @o[pid] = nsecs;
 }
-
-kretprobe:nv_open_device
-/ @t_open[tid] /
+kretprobe:nv_open_device /@o[pid]/
 {
-    printf("OPEN-END    %s[%d] ret=%d %dms\n", comm, pid,
-        (int64)retval, (nsecs - @t_open[tid]) / 1000000);
-    delete(@t_open[tid]);
+    printf("OPEN-END %llums %s[%d]\n", (nsecs - @o[pid]) / 1000000, comm, pid);
+    delete(@o[pid]);
 }
 
-/* close 路径（chardev release；ComfyUI/引擎释放设备时命中） */
 kprobe:nvidia_close
 {
     printf("CLOSE-BEGIN %s[%d]\n", comm, pid);
-    @t_close[tid] = nsecs;
+    @c[pid] = nsecs;
+}
+kretprobe:nvidia_close /@c[pid]/
+{
+    printf("CLOSE-END %llums %s[%d]\n", (nsecs - @c[pid]) / 1000000, comm, pid);
+    delete(@c[pid]);
 }
 
-kretprobe:nvidia_close
-/ @t_close[tid] /
+kprobe:nv_close_device
 {
-    printf("CLOSE-END   %s[%d] %dms\n", comm, pid,
-        (nsecs - @t_close[tid]) / 1000000);
-    delete(@t_close[tid]);
+    printf("NVCLOSE-BEGIN %s[%d]\n", comm, pid);
+    @nc[pid] = nsecs;
+}
+kretprobe:nv_close_device /@nc[pid]/
+{
+    printf("NVCLOSE-END %llums %s[%d]\n", (nsecs - @nc[pid]) / 1000000, comm, pid);
+    delete(@nc[pid]);
 }
 
-/* PM suspend 路径：nv_suspend_devices 已内联无法 kprobe（control=on 下也不应触发） */
-
-END
+/* ---- rwsem 写者慢路径：等哪把锁（地址）+ 等多久 ---- */
+kprobe:rwsem_down_write_slowpath
 {
-    printf("===== PROBE END =====\n");
+    @rws[tid] = nsecs;
+    @rwp[tid] = (uint64)arg0;
+}
+kretprobe:rwsem_down_write_slowpath /@rws[tid]/
+{
+    $d = (nsecs - @rws[tid]) / 1000000;
+    if ($d > 300) {
+        printf("RWS-WAIT-W %llums sem=0x%llx %s[%d]\n", $d, @rwp[tid], comm, pid);
+    }
+    delete(@rws[tid]);
+    delete(@rwp[tid]);
+}
+
+/* ---- rwsem 读者慢路径 ---- */
+kprobe:rwsem_down_read_slowpath
+{
+    @rs[tid] = nsecs;
+    @rp[tid] = (uint64)arg0;
+}
+kretprobe:rwsem_down_read_slowpath /@rs[tid]/
+{
+    $d = (nsecs - @rs[tid]) / 1000000;
+    if ($d > 300) {
+        printf("RWS-WAIT-R %llums sem=0x%llx %s[%d]\n", $d, @rp[tid], comm, pid);
+    }
+    delete(@rs[tid]);
+    delete(@rp[tid]);
+}
+
+/* ---- semaphore（ldata_lock 若为 semaphore 走这里）：GPU 进程 BEGIN 全记录 ----
+ * 注意：这台 bpftrace 不支持 =~ 正则，用相等链 */
+kprobe:down /comm == "python" || comm == "python3" || comm == "nvidia-smi" || comm == "Xorg" || comm == "pt_main_thread" || comm == "VLLM::EngineC" || comm == "VLLM::WorkerT" || comm == "EngineCore" || comm == "EngineCor_0"/
+{
+    printf("SEM-BEGIN %s[%d]\n", comm, pid);
+    @ds[tid] = nsecs;
+}
+kretprobe:down /@ds[tid]/
+{
+    $d = (nsecs - @ds[tid]) / 1000000;
+    if ($d > 300) {
+        printf("SEM-END-SLOW %llums %s[%d]\n", $d, comm, pid);
+    }
+    delete(@ds[tid]);
+}
+
+/* ---- semaphore 任意进程慢等待（兜底，>300ms 才记） ---- */
+kprobe:down /@ds[tid] == 0/
+{
+    @ds2[tid] = nsecs;
+}
+kretprobe:down /@ds2[tid]/
+{
+    $d = (nsecs - @ds2[tid]) / 1000000;
+    if ($d > 300) {
+        printf("SEM-WAIT %llums %s[%d]\n", $d, comm, pid);
+    }
+    delete(@ds2[tid]);
+}
+
+kprobe:down_killable
+{
+    @dk[tid] = nsecs;
+}
+kretprobe:down_killable /@dk[tid]/
+{
+    $d = (nsecs - @dk[tid]) / 1000000;
+    if ($d > 300) {
+        printf("SEM-WAIT-K %llums %s[%d]\n", $d, comm, pid);
+    }
+    delete(@dk[tid]);
+}
+
+kprobe:down_interruptible
+{
+    @di[tid] = nsecs;
+}
+kretprobe:down_interruptible /@di[tid]/
+{
+    $d = (nsecs - @di[tid]) / 1000000;
+    if ($d > 300) {
+        printf("SEM-WAIT-I %llums %s[%d]\n", $d, comm, pid);
+    }
+    delete(@di[tid]);
 }

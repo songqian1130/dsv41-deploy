@@ -16,3 +16,6 @@ engine/bundles/
 .DS_Store
 .idea/
 .vscode/
+
+# 运行日志（netconsole 接收器落盘等）
+logs/
