@@ -32,6 +32,13 @@ Both in state D — machine completely stalls, not even keyboard input.
 | 5 | **竞态燃料**：blackbox 1Hz + fastwatch 5Hz 的 nvidia-smi 子进程循环 = 每秒 1-5 次完整设备 **open→close**（`-lms 200` 循环内重走 NVML init/deinit），自 11-15 起常驻生产 | 高频 open/close 把 #968 的概率窗口放大到 ~6h 中招一次 |
 | 6 | 引擎在 **Docker 容器**（open 模块对容器 O_NONBLOCK open 有 deferred 路径） | #968 报告的触发场景 |
 | 7 | 今早 10:00：journald 比 blackbox 早断 4 秒 | rwsem 死锁后内核日志通道先卡，用户态文件写多活几秒 |
+| 8 | **缓解后仍死（11-17 15:14，persistence ON + fastwatch OFF 下 2.75h）**：ComfyUI 完全空闲（0% util 无卸载）、引擎 3 路大 KV decode（KV 25.3%）——**形态剧变，"卸载触发"被推翻**；且 14:50:06 内核记录 **MCE（Machine check）硬件错误**，死机前 25 分钟 | fastwatch 燃料非必要条件；剩余 open/close 源仅 blackbox 1Hz；**硬件/平台嫌疑上升**（MCE 详情因未装 mcelog/rasdaemon 已丢失，现已布防） |
+
+**决定性对照实验（16:23 起）**：blackbox 改为 **pynvml 常驻连接版**（`tools/dsv41-blackbox-pynvml.py`，
+一次 nvmlInit，无 open/close 循环，列格式兼容）——**系统内 nvidia-smi 子进程循环归零**。
+- 之后死机消失/大降 → open/close 燃料假说实锤，根因 = #968 × 我们的监控实现
+- 之后照死（rasdaemon 会记录下次 MCE/AER 详情）→ 燃料假说终结，转向硬件/平台方向
+  （内存控制器/供电/CPU——X99 魔改板 + 5 卡压力）
 
 **反证排除**：
 - 对调实验（02:00.0 ↔ 09:00.0 物理对调）：单卡致命配置两卡两槽全存活、死亡场景 5/5 存活、
